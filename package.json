@@ -1,0 +1,27 @@
+{
+  "name": "gittogether",
+  "version": "1.0.0",
+  "description": "tinder for devs",
+  "keywords": [
+    "nodejs",
+    "javascript"
+  ],
+  "homepage": "https://github.com/Ayyayush/Git-together#readme",
+  "bugs": {
+    "url": "https://github.com/Ayyayush/Git-together/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ayyayush/Git-together.git"
+  },
+  "license": "ISC",
+  "author": "Ayush Pandey",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}

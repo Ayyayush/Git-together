@@ -1,8 +1,11 @@
 const express = require("express");
+const adminAuth = require("./middlewares/auth");
 
 const app = express();
 
+// ------------------------------------
 // Middleware to parse JSON
+// ------------------------------------
 app.use(express.json());
 
 // ------------------------------------
@@ -15,6 +18,8 @@ app.get("/", (req, res) => {
 app.get("/health", (req, res) => {
     res.status(200).json({ status: "OK" });
 });
+
+
 
 // ------------------------------------
 // Auth Routes
@@ -30,6 +35,9 @@ app.post("/api/auth/login", (req, res) => {
 app.post("/api/auth/logout", (req, res) => {
     res.send("User logged out");
 });
+
+
+
 
 // ------------------------------------
 // User Routes
@@ -50,8 +58,11 @@ app.delete("/api/users/:userId", (req, res) => {
     res.send(`User ${req.params.userId} deleted`);
 });
 
+
+
+
 // ------------------------------------
-// Project Routes (Core Feature)
+// Project Routes
 // ------------------------------------
 app.post("/api/projects", (req, res) => {
     res.send("Project created");
@@ -73,6 +84,9 @@ app.delete("/api/projects/:projectId", (req, res) => {
     res.send(`Project ${req.params.projectId} deleted`);
 });
 
+
+
+
 // ------------------------------------
 // Collaboration Routes
 // ------------------------------------
@@ -88,12 +102,46 @@ app.get("/api/projects/:projectId/collaborators", (req, res) => {
     res.send(`Collaborators of project ${req.params.projectId}`);
 });
 
+
+
+
+// ------------------------------------
+// Admin Routes (PROTECTED)
+// ------------------------------------
+app.get("/admin/getalldata", adminAuth, (req, res) => {
+    res.send("All admin data sent");
+});
+
 // ------------------------------------
 // Fallback Route (Always LAST)
 // ------------------------------------
 app.use((req, res) => {
     res.status(404).json({ message: "Route not found" });
 });
+
+
+
+
+// ------------------------------------
+// Error handling (CORRECT)
+// ------------------------------------
+
+// Example route that throws an error
+app.get("/test-error", (req, res, next) => {
+    try {
+        throw new Error("Something went wrong");
+    } catch (err) {
+        next(err);
+    }
+});
+
+// Global error-handling middleware (MUST be last)
+app.use((err, req, res, next) => {
+    res.status(500).json({
+        message: err.message
+    });
+});
+
 
 // ------------------------------------
 // Start Server

@@ -10,9 +10,7 @@ app.use(express.json());                                 // Middleware to parse 
 app.post("/signup", async (req, res) => {                // Async handler because DB operations are async
     try {
         const user = new User(req.body);                 // Creating new User document from request body
-
         await user.save();                               // Saving user document into database
-
         res.send("User created and saved successfully"); // Success response
     } catch (err) {
         res.status(500).send("Error creating user");     // Error response
@@ -45,6 +43,44 @@ app.get("/feed", async (req, res) => {                   // Feed API
         res.send(users);                                 // Sending users as feed
     } catch (err) {
         res.status(500).send("Error fetching feed");     // Error response
+    }
+});
+
+// Delete user by userId
+app.delete("/user", async (req, res) => {                // Delete API
+    try {
+        const userId = req.body.userId;                  // Extracting userId from request body
+
+        const deletedUser = await User.findByIdAndDelete(userId); // Deleting user by ID
+
+        if (!deletedUser) {                              // If user not found
+            return res.status(404).send("User not found");
+        }
+
+        res.send("User deleted successfully");           // Success response
+    } catch (err) {
+        res.status(500).send("Error deleting user");     // Error response
+    }
+});
+
+// Update user data
+app.patch("/user", async (req, res) => {                 // Update API
+    try {
+        const userId = req.body.userId;                  // Extracting userId from request body
+
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,                                      // User ID to update
+            req.body,                                    // Fields to update
+            { new: true }                                // Return updated document
+        );
+
+        if (!updatedUser) {                              // If user not found
+            return res.status(404).send("User not found");
+        }
+
+        res.send("User updated successfully");           // Success response
+    } catch (err) {
+        res.status(500).send("Error updating user");     // Error response
     }
 });
 

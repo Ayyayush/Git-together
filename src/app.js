@@ -7,94 +7,108 @@ const app = express();                                   // Creating Express app
 app.use(express.json());                                 // Middleware to parse incoming JSON into req.body
 
 // Signup API – creates and saves a new user
-app.post("/signup", async (req, res) => {                // Async handler because DB operations are async
+app.post("/signup", async (req, res) => {
     try {
-        const user = new User(req.body);                 // Creating new User document from request body
-        await user.save();                               // Saving user document into database
-        res.send("User created and saved successfully"); // Success response
+        const user = new User(req.body);
+        await user.save();
+        res.send("User created and saved successfully");
     } catch (err) {
-        res.status(500).send("Error creating user");     // Error response
+        res.status(500).send("Error creating user");
     }
 });
 
 // Get user by email
-app.get("/user", async (req, res) => {                   // Async handler for DB query
+app.get("/user", async (req, res) => {
     try {
-        const userEmail = req.body.emailId;              // Extracting emailId from request body
-
-        const user = await User.find({                   // Finding user document by emailId
-            emailId: userEmail
-        });
-
-        if (user.length === 0) {                         // If no user found
-            return res.status(404).send("User not found");
-        }
-
-        res.send(user);                                  // Sending found user(s) as response
+        const user = await User.find({ emailId: req.body.emailId });
+        if (user.length === 0) return res.status(404).send("User not found");
+        res.send(user);
     } catch (err) {
-        res.status(500).send("Error fetching user");     // Error response
+        res.status(500).send("Error fetching user");
     }
 });
 
 // Feed API – get all users
-app.get("/feed", async (req, res) => {                   // Feed API
+app.get("/feed", async (req, res) => {
     try {
-        const users = await User.find();                 // Fetching all users from database
-        res.send(users);                                 // Sending users as feed
+        const users = await User.find();
+        res.send(users);
     } catch (err) {
-        res.status(500).send("Error fetching feed");     // Error response
+        res.status(500).send("Error fetching feed");
     }
 });
 
 // Delete user by userId
-app.delete("/user", async (req, res) => {                // Delete API
+app.delete("/user", async (req, res) => {
     try {
-        const userId = req.body.userId;                  // Extracting userId from request body
-
-        const deletedUser = await User.findByIdAndDelete(userId); // Deleting user by ID
-
-        if (!deletedUser) {                              // If user not found
-            return res.status(404).send("User not found");
-        }
-
-        res.send("User deleted successfully");           // Success response
+        const deletedUser = await User.findByIdAndDelete(req.body.userId);
+        if (!deletedUser) return res.status(404).send("User not found");
+        res.send("User deleted successfully");
     } catch (err) {
-        res.status(500).send("Error deleting user");     // Error response
+        res.status(500).send("Error deleting user");
     }
 });
 
-// Update user data
-app.patch("/user", async (req, res) => {                 // Update API
-    try {
-        const userId = req.body.userId;                  // Extracting userId from request body
 
-        const updatedUser = await User.findByIdAndUpdate(
-            userId,                                      // User ID to update
-            req.body,                                    // Fields to update
-            { new: true }                                // Return updated document
+
+// ==========================
+// STANDARD PATCH API
+// ==========================
+app.patch("/user/:userId", async (req, res) => {
+    try {
+        const userId = req.params.userId;                 // User ID from URL
+        const updates = req.body;                        // Fields to update
+
+        // Fields user is allowed to update
+        const ALLOWED_UPDATES = ["photoUrl", "gender", "age", "about", "skills"];
+
+        // Validate update fields
+        const isUpdateAllowed = Object.keys(updates).every((key) =>
+            ALLOWED_UPDATES.includes(key)
         );
 
-        if (!updatedUser) {                              // If user not found
-            return res.status(404).send("User not found");
+        if (!isUpdateAllowed) {
+            return res.status(400).json({ message: "Invalid fields in update request" });
         }
 
-        res.send("User updated successfully");           // Success response
+        // Validate skills length if provided
+        if (updates.skills && updates.skills.length > 10) {
+            return res.status(400).json({ message: "You can add a maximum of 10 skills only" });
+        }
+
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            updates,
+            {
+                new: true,                               // Return updated document
+                runValidators: true                     // Run schema validation
+            }
+        );
+
+        if (!updatedUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        res.status(200).json({
+            message: "User updated successfully",
+            data: updatedUser
+        });
+
     } catch (err) {
-        res.status(500).send("Error updating user");     // Error response
+        console.error(err);
+        res.status(500).json({ message: "Error updating user" });
     }
 });
+
+
 
 // First connect to database, then start server
 connectDB()
     .then(() => {
-        console.log("Database connected");               // DB connection success log
-
-        app.listen(7777, () => {                          // Starting server on port 7777
-            console.log("Server listening on port 7777"); // Server started confirmation
-        });
+        console.log("Database connected");
+        app.listen(7777, () => console.log("Server listening on port 7777"));
     })
     .catch((err) => {
-        console.error("Failed to connect to database");   // DB connection failure log
-        console.error(err.message);                       // Printing error message
-        process.exit(1);                                 // Exiting process on failure
+        console.error("Failed to connect to database");
+        process.exit(1);
     });

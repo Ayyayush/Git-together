@@ -1,14 +1,14 @@
-const mongoose = require("mongoose");                 // Importing mongoose
-const validator = require("validator");              // External validation library
+const mongoose = require("mongoose");
+const validator = require("validator");
 
 const userSchema = new mongoose.Schema(
 {
     firstName: {
-        type: String,                                // First name of user
-        required: true,                              // Mandatory
-        minlength: 2,                                // At least 2 characters
-        maxlength: 50,                               // Max 50 characters
-        trim: true                                   // Remove extra spaces
+        type: String,
+        required: true,
+        minlength: 2,
+        maxlength: 50,
+        trim: true
     },
 
     lastName: {
@@ -18,45 +18,40 @@ const userSchema = new mongoose.Schema(
 
     emailId: {
         type: String,
-        required: true,                              // Email is mandatory
-        lowercase: true,                             // Always store lowercase
-        unique: true,                                // Must be unique
+        required: true,
+        lowercase: true,
+        unique: true,
         trim: true,
-        validate(value) {                            // Email format validation
+        validate(value) {
             if (!validator.isEmail(value)) {
                 throw new Error("Invalid email address");
             }
         }
     },
 
+    // 🔐 Password (bcrypt hash)
     password: {
         type: String,
-        required: true,                              // Password is mandatory
-        minlength: 6,                                // Minimum password length
-        select: false,                               // Hide password from queries
-        validate(value) {                            // Strong password check
-            if (!validator.isStrongPassword(value)) {
-                throw new Error("Password must be strong (uppercase, lowercase, number & symbol required)");
-            }
-        }
+        required: true,
+        minlength: 60
+        // ❌ DO NOT use select:false here
     },
 
     age: {
         type: Number,
-        min: 18,                                     // Minimum age
-        max: 60                                      // Maximum age
+        min: 18,
+        max: 60
     },
 
     gender: {
         type: String,
-        required: true,
-        enum: ["Male", "Female", "Other"]             // Only these values allowed
+        enum: ["Male", "Female", "Other"]
     },
 
     photoUrl: {
         type: String,
         default: "https://tse2.mm.bing.net/th/id/OIP.WLB7NRb9ayKYi7EQ1dAhgAAAAA?pid=Api&P=0&h=180",
-        validate(value) {                            // Validate URL
+        validate(value) {
             if (!validator.isURL(value)) {
                 throw new Error("Invalid photo URL");
             }
@@ -66,15 +61,13 @@ const userSchema = new mongoose.Schema(
     about: {
         type: String,
         default: "This is a default bio",
-        maxlength: 300                               // Limit about section size
+        maxlength: 300
     },
 
     skills: {
         type: [String],
-        validate(value) {                            // At least one skill required
-            if (value.length === 0) {
-                throw new Error("User must have at least one skill");
-            }
+        default: [],
+        validate(value) {
             if (value.length > 10) {
                 throw new Error("You can add a maximum of 10 skills");
             }
@@ -82,13 +75,12 @@ const userSchema = new mongoose.Schema(
     },
 
     isActive: {
-        type: Boolean,                               // Soft delete / active status
+        type: Boolean,
         default: true
     }
 },
 {
-    timestamps: true                                // Automatically add createdAt & updatedAt
-}
-);
+    timestamps: true
+});
 
-module.exports = mongoose.model("User", userSchema);  // Exporting User model
+module.exports = mongoose.model("User", userSchema);

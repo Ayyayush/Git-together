@@ -7,7 +7,6 @@ const User = require("./models/user");
 const ConnectionRequest = require("./models/ConnectionRequest");
 const validateSignupData = require("./utils/validation");
 const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const { userAuth } = require("./middlewares/auth");
 
@@ -18,10 +17,6 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-// ==========================
-// JWT Secret
-// ==========================
-const JWT_SECRET = "gittogether_super_secret";
 
 
 // =================================================
@@ -55,8 +50,9 @@ app.post("/signup", async (req, res) => {
 });
 
 
+
 // =================================================
-// LOGIN
+// LOGIN (CLEAN + MODEL-DRIVEN)
 // =================================================
 app.post("/login", async (req, res) => {
     try {
@@ -71,17 +67,23 @@ app.post("/login", async (req, res) => {
             return res.status(400).json({ message: "Invalid email or password" });
         }
 
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
+        /*
+         * ✅ Password validation via schema method
+         */
+        const isPasswordValid = await user.validatePassword(password);
+        if (!isPasswordValid) {
             return res.status(400).json({ message: "Invalid email or password" });
         }
 
-        const token = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: "1d" });
+        /*
+         * ✅ JWT via schema method
+         */
+        const token = await user.getJWT();
 
         res.cookie("token", token, {
             httpOnly: true,
             sameSite: "lax",
-            maxAge: 24 * 60 * 60 * 1000
+            maxAge: 7 * 24 * 60 * 60 * 1000
         });
 
         res.json({
@@ -94,10 +96,12 @@ app.post("/login", async (req, res) => {
             }
         });
     }
-    catch {
-        res.status(500).json({ message: "Login failed" });
+    catch (err) {
+        res.status(500).json({ message: err.message });
     }
 });
+
+
 
 
 // =================================================
@@ -130,15 +134,16 @@ app.patch("/user/me", userAuth, async (req, res) => {
             return res.status(400).json({ message: "Invalid update fields" });
         }
 
-        const user = await User.findByIdAndUpdate(req.user._id, updates, {
-            new: true,
-            runValidators: true
-        }).select("-password");
+        const user = await User.findByIdAndUpdate(
+            req.user._id,
+            updates,
+            { new: true, runValidators: true }
+        ).select("-password");
 
         res.json({ message: "Updated successfully", user });
     }
-    catch {
-        res.status(500).json({ message: "Update failed" });
+    catch (err) {
+        res.status(500).json({ message: err.message });
     }
 });
 
@@ -169,8 +174,8 @@ app.post("/request/send/:toUserId", userAuth, async (req, res) => {
 
         res.json({ message: "Connection request sent" });
     }
-    catch {
-        res.status(500).json({ message: "Request failed" });
+    catch (err) {
+        res.status(500).json({ message: err.message });
     }
 });
 
@@ -193,7 +198,7 @@ app.get("/requests/received", userAuth, async (req, res) => {
 // =================================================
 app.post("/request/respond/:requestId", userAuth, async (req, res) => {
     try {
-        const { status } = req.body; // accepted or rejected
+        const { status } = req.body;
 
         if (!["accepted", "rejected"].includes(status)) {
             return res.status(400).json({ message: "Invalid status" });
@@ -213,8 +218,8 @@ app.post("/request/respond/:requestId", userAuth, async (req, res) => {
 
         res.json({ message: `Request ${status}` });
     }
-    catch {
-        res.status(500).json({ message: "Failed to update request" });
+    catch (err) {
+        res.status(500).json({ message: err.message });
     }
 });
 
@@ -253,7 +258,9 @@ app.post("/logout", userAuth, (req, res) => {
 connectDB()
     .then(() => {
         console.log("Database connected");
-        app.listen(7777, () => console.log("Server running on port 7777"));
+        app.listen(7777, () =>
+            console.log("Server running on port 7777")
+        );
     })
     .catch(err => {
         console.error("Database connection failed", err);

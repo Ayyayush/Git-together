@@ -1,6 +1,13 @@
 const mongoose = require("mongoose");
 const validator = require("validator");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
 
+/*
+ * ============================
+ * User Schema
+ * ============================
+ */
 const userSchema = new mongoose.Schema(
 {
     firstName: {
@@ -29,12 +36,13 @@ const userSchema = new mongoose.Schema(
         }
     },
 
-    // 🔐 Password (bcrypt hash)
+    /*
+     * 🔐 Hashed Password
+     */
     password: {
         type: String,
         required: true,
         minlength: 60
-        // ❌ DO NOT use select:false here
     },
 
     age: {
@@ -50,7 +58,8 @@ const userSchema = new mongoose.Schema(
 
     photoUrl: {
         type: String,
-        default: "https://tse2.mm.bing.net/th/id/OIP.WLB7NRb9ayKYi7EQ1dAhgAAAAA?pid=Api&P=0&h=180",
+        default:
+            "https://tse2.mm.bing.net/th/id/OIP.WLB7NRb9ayKYi7EQ1dAhgAAAAA?pid=Api&P=0&h=180",
         validate(value) {
             if (!validator.isURL(value)) {
                 throw new Error("Invalid photo URL");
@@ -81,6 +90,43 @@ const userSchema = new mongoose.Schema(
 },
 {
     timestamps: true
-});
+}
+);
+
+/*
+ * ============================
+ * Instance Method: Validate Password
+ * ============================
+ */
+userSchema.methods.validatePassword = async function (passwordInputByUser) {
+
+    const user = this;
+    const passwordHash = user.password;
+
+    const isPasswordValid = await bcrypt.compare(
+        passwordInputByUser,
+        passwordHash
+    );
+
+    return isPasswordValid;
+};
+
+/*
+ * ============================
+ * Instance Method: Generate JWT
+ * ============================
+ */
+userSchema.methods.getJWT = async function () {
+
+    const user = this;
+
+    const token = jwt.sign(
+        { _id: user._id },
+        "DEVtinder$790", // move to env later
+        { expiresIn: "7d" }
+    );
+
+    return token;
+};
 
 module.exports = mongoose.model("User", userSchema);

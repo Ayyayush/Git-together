@@ -4,19 +4,28 @@
 const express = require("express");
 const connectDB = require("./config/database");
 const User = require("./models/user");
+const ConnectionRequest = require("./models/ConnectionRequest");
 const validateSignupData = require("./utils/validation");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
+const { userAuth } = require("./middlewares/auth");
 
 // ==========================
 // App Init
 // ==========================
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
 
+// ==========================
+// JWT Secret
+// ==========================
+const JWT_SECRET = "gittogether_super_secret";
 
 
 // =================================================
-// SIGNUP API
+// SIGNUP
 // =================================================
 app.post("/signup", async (req, res) => {
     try {
@@ -31,26 +40,23 @@ app.post("/signup", async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const user = new User({
+        await User.create({
             firstName,
             lastName,
             emailId,
             password: hashedPassword
         });
 
-        await user.save();
-
         res.status(201).json({ message: "User registered successfully" });
-
-    } catch (err) {
+    }
+    catch (err) {
         res.status(400).json({ message: err.message });
     }
 });
 
 
-
 // =================================================
-// LOGIN API
+// LOGIN
 // =================================================
 app.post("/login", async (req, res) => {
     try {
@@ -61,16 +67,22 @@ app.post("/login", async (req, res) => {
         }
 
         const user = await User.findOne({ emailId });
-
-        if (!user || !user.password) {
+        if (!user) {
             return res.status(400).json({ message: "Invalid email or password" });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
-
         if (!isMatch) {
             return res.status(400).json({ message: "Invalid email or password" });
         }
+
+        const token = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: "1d" });
+
+        res.cookie("token", token, {
+            httpOnly: true,
+            sameSite: "lax",
+            maxAge: 24 * 60 * 60 * 1000
+        });
 
         res.json({
             message: "Login successful",
@@ -81,112 +93,162 @@ app.post("/login", async (req, res) => {
                 emailId: user.emailId
             }
         });
-
-    } catch (err) {
-        console.error("LOGIN ERROR 👉", err);
+    }
+    catch {
         res.status(500).json({ message: "Login failed" });
     }
 });
 
 
 // =================================================
-// GET USER BY EMAIL
+// PROFILE
 // =================================================
-app.get("/user", async (req, res) => {
-    try {
-        const email = req.query.email;
-
-        if (!email) {
-            return res.status(400).json({ message: "Email is required" });
-        }
-
-        const user = await User.findOne({ emailId: email }).select("-password");
-
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        res.json(user);
-
-    } catch (err) {
-        res.status(500).json({ message: "Error fetching user" });
-    }
+app.get("/profile", userAuth, (req, res) => {
+    res.json(req.user);
 });
 
 
-
 // =================================================
-// FEED (All users)
+// FEED
 // =================================================
-app.get("/feed", async (req, res) => {
-    try {
-        const users = await User.find().select("-password");
-        res.json(users);
-    } catch (err) {
-        res.status(500).json({ message: "Error fetching users" });
-    }
+app.get("/feed", userAuth, async (req, res) => {
+    const users = await User.find().select("-password");
+    res.json(users);
 });
 
 
-
 // =================================================
-// DELETE USER
+// UPDATE PROFILE
 // =================================================
-app.delete("/user/:userId", async (req, res) => {
+app.patch("/user/me", userAuth, async (req, res) => {
     try {
-        const deletedUser = await User.findByIdAndDelete(req.params.userId);
-
-        if (!deletedUser) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        res.json({ message: "User deleted successfully" });
-
-    } catch (err) {
-        res.status(500).json({ message: "Error deleting user" });
-    }
-});
-
-
-
-// =================================================
-// UPDATE USER
-// =================================================
-app.patch("/user/:userId", async (req, res) => {
-    try {
-        const updates = req.body;
         const ALLOWED = ["photoUrl", "gender", "age", "about", "skills"];
+        const updates = req.body;
 
         const isAllowed = Object.keys(updates).every(k => ALLOWED.includes(k));
         if (!isAllowed) {
             return res.status(400).json({ message: "Invalid update fields" });
         }
 
-        if (updates.skills && updates.skills.length > 10) {
-            return res.status(400).json({ message: "Max 10 skills allowed" });
-        }
+        const user = await User.findByIdAndUpdate(req.user._id, updates, {
+            new: true,
+            runValidators: true
+        }).select("-password");
 
-        const user = await User.findByIdAndUpdate(
-            req.params.userId,
-            updates,
-            { new: true, runValidators: true }
-        ).select("-password");
-
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        res.json({ message: "User updated successfully", data: user });
-
-    } catch (err) {
-        res.status(500).json({ message: "Error updating user" });
+        res.json({ message: "Updated successfully", user });
+    }
+    catch {
+        res.status(500).json({ message: "Update failed" });
     }
 });
 
 
+// =================================================
+// SEND CONNECTION REQUEST
+// =================================================
+app.post("/request/send/:toUserId", userAuth, async (req, res) => {
+    try {
+        const fromUserId = req.user._id;
+        const toUserId = req.params.toUserId;
+
+        if (fromUserId.equals(toUserId)) {
+            return res.status(400).json({ message: "Cannot send request to yourself" });
+        }
+
+        const targetUser = await User.findById(toUserId);
+        if (!targetUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const existing = await ConnectionRequest.findOne({ fromUserId, toUserId });
+        if (existing) {
+            return res.status(400).json({ message: "Request already sent" });
+        }
+
+        await ConnectionRequest.create({ fromUserId, toUserId });
+
+        res.json({ message: "Connection request sent" });
+    }
+    catch {
+        res.status(500).json({ message: "Request failed" });
+    }
+});
+
 
 // =================================================
-// Start Server After DB Connect
+// VIEW RECEIVED REQUESTS
+// =================================================
+app.get("/requests/received", userAuth, async (req, res) => {
+    const requests = await ConnectionRequest.find({
+        toUserId: req.user._id,
+        status: "pending"
+    }).populate("fromUserId", "firstName lastName photoUrl");
+
+    res.json(requests);
+});
+
+
+// =================================================
+// ACCEPT / REJECT REQUEST
+// =================================================
+app.post("/request/respond/:requestId", userAuth, async (req, res) => {
+    try {
+        const { status } = req.body; // accepted or rejected
+
+        if (!["accepted", "rejected"].includes(status)) {
+            return res.status(400).json({ message: "Invalid status" });
+        }
+
+        const request = await ConnectionRequest.findOne({
+            _id: req.params.requestId,
+            toUserId: req.user._id
+        });
+
+        if (!request) {
+            return res.status(404).json({ message: "Request not found" });
+        }
+
+        request.status = status;
+        await request.save();
+
+        res.json({ message: `Request ${status}` });
+    }
+    catch {
+        res.status(500).json({ message: "Failed to update request" });
+    }
+});
+
+
+// =================================================
+// MY CONNECTIONS
+// =================================================
+app.get("/connections", userAuth, async (req, res) => {
+    const userId = req.user._id;
+
+    const connections = await ConnectionRequest.find({
+        status: "accepted",
+        $or: [{ fromUserId: userId }, { toUserId: userId }]
+    }).populate("fromUserId toUserId", "firstName lastName photoUrl");
+
+    const matches = connections.map(r =>
+        r.fromUserId._id.equals(userId) ? r.toUserId : r.fromUserId
+    );
+
+    res.json(matches);
+});
+
+
+// =================================================
+// LOGOUT
+// =================================================
+app.post("/logout", userAuth, (req, res) => {
+    res.clearCookie("token");
+    res.json({ message: "Logged out successfully" });
+});
+
+
+// =================================================
+// START SERVER
 // =================================================
 connectDB()
     .then(() => {

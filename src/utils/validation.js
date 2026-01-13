@@ -1,5 +1,10 @@
 const validator = require("validator");
 
+/*
+ * ============================
+ * Validate Signup Data
+ * ============================
+ */
 const validateSignupData = (req) => {
     const { firstName, lastName, emailId, password } = req.body;
 
@@ -20,4 +25,33 @@ const validateSignupData = (req) => {
     }
 };
 
-module.exports = validateSignupData;
+/*
+ * ============================
+ * Validate Edit Profile Data
+ * ============================
+ */
+const validateEditProfileData = (req) => {
+    const allowedEditFields = [
+        "firstName",
+        "lastName",
+        "emailId",
+        "photoUrl",
+        "gender",
+        "age",
+        "about",
+        "skills"
+    ];
+
+    const isEditAllowed = Object.keys(req.body).every((field) =>
+        allowedEditFields.includes(field)
+    );
+
+    if (!isEditAllowed) {
+        throw new Error("Invalid fields for profile update");
+    }
+};
+
+module.exports = {
+    validateSignupData,
+    validateEditProfileData
+};

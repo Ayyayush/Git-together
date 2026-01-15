@@ -1,7 +1,13 @@
+/*
+ * ==========================
+ * Connection Request Routes
+ * ==========================
+ */
+
 const express = require("express");
 const requestRouter = express.Router();
 
-const User = require("../models/user");
+const User = require("../models/User");
 const ConnectionRequest = require("../models/ConnectionRequest");
 const { userAuth } = require("../middlewares/auth");
 
@@ -19,7 +25,7 @@ requestRouter.post(
       const { toUserId, status } = req.params;
 
       /*
-       * Allowed statuses while sending request
+       * Allowed statuses
        */
       if (!["interested", "ignored"].includes(status)) {
         return res.status(400).json({
@@ -47,17 +53,19 @@ requestRouter.post(
       }
 
       /*
-       * Prevent duplicate requests
+       * Prevent duplicate / reverse requests
        */
       const existingRequest =
         await ConnectionRequest.findOne({
-          fromUserId,
-          toUserId
+          $or: [
+            { fromUserId, toUserId },
+            { fromUserId: toUserId, toUserId: fromUserId }
+          ]
         });
 
       if (existingRequest) {
         return res.status(400).json({
-          message: "Request already sent"
+          message: "Connection request already exists"
         });
       }
 
@@ -81,31 +89,6 @@ requestRouter.post(
   }
 );
 
-
-
-
-/*
- * =================================================
- * GET RECEIVED REQUESTS
- * =================================================
- */
-requestRouter.get(
-  "/requests/received",
-  userAuth,
-  async (req, res) => {
-    const requests =
-      await ConnectionRequest.find({
-        toUserId: req.user._id,
-        status: "interested"
-      }).populate(
-        "fromUserId",
-        "firstName lastName photoUrl"
-      );
-
-    res.json(requests);
-  }
-);
-
 /*
  * =================================================
  * ACCEPT / REJECT REQUEST
@@ -118,21 +101,28 @@ requestRouter.post(
     try {
       const { status, requestId } = req.params;
 
+      /*
+       * Allowed review statuses
+       */
       if (!["accepted", "rejected"].includes(status)) {
         return res.status(400).json({
           message: "Invalid review status"
         });
       }
 
+      /*
+       * Only interested requests can be reviewed
+       */
       const request =
         await ConnectionRequest.findOne({
           _id: requestId,
-          toUserId: req.user._id
+          toUserId: req.user._id,
+          status: "interested"
         });
 
       if (!request) {
         return res.status(404).json({
-          message: "Request not found"
+          message: "Request not found or already reviewed"
         });
       }
 
@@ -147,39 +137,6 @@ requestRouter.post(
         message: err.message
       });
     }
-  }
-);
-
-/*
- * =================================================
- * GET MY CONNECTIONS
- * =================================================
- */
-requestRouter.get(
-  "/connections",
-  userAuth,
-  async (req, res) => {
-    const userId = req.user._id;
-
-    const connections =
-      await ConnectionRequest.find({
-        status: "accepted",
-        $or: [
-          { fromUserId: userId },
-          { toUserId: userId }
-        ]
-      }).populate(
-        "fromUserId toUserId",
-        "firstName lastName photoUrl"
-      );
-
-    const matches = connections.map((req) =>
-      req.fromUserId._id.equals(userId)
-        ? req.toUserId
-        : req.fromUserId
-    );
-
-    res.json(matches);
   }
 );
 

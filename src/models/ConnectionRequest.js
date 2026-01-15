@@ -30,8 +30,8 @@ const connectionRequestSchema = new mongoose.Schema(
      */
     status: {
       type: String,
-      enum: ["pending", "accepted", "rejected", "ignored","interested"],
-      default: "pending"
+      enum: ["interested", "ignored", "accepted", "rejected"],
+      required: true
     }
   },
   {
@@ -45,9 +45,11 @@ const connectionRequestSchema = new mongoose.Schema(
 connectionRequestSchema.index(
   { fromUserId: 1, toUserId: 1 },
   { unique: true }
-); 
-
-module.exports = mongoose.model(
-  "ConnectionRequest",
-  connectionRequestSchema
 );
+
+/*
+ * SAFE EXPORT (prevents OverwriteModelError)
+ */
+module.exports =
+  mongoose.models.ConnectionRequest ||
+  mongoose.model("ConnectionRequest", connectionRequestSchema);

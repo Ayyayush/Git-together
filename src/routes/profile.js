@@ -14,6 +14,8 @@ profileRouter.get("/profile/view", userAuth, (req, res) => {
   res.json(req.user);
 });
 
+
+
 // =================================================
 // UPDATE PROFILE
 // =================================================
@@ -40,6 +42,7 @@ profileRouter.patch("/profile/edit", userAuth, async (req, res) => {
     });
   }
 });
+
 
 
 // =================================================

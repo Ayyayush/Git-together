@@ -41,10 +41,13 @@ profileRouter.patch("/profile/edit", userAuth, async (req, res) => {
   }
 });
 
+
 // =================================================
-// FEED
+// FEED to see users in database just to chek my data while i am building my site 
+// changing it's name to something ele to avoid confusio 
+// ye ai sabo nhi avaible oni chaiye ye toh bas mi build kr ra toh mujhe avaible h 
 // =================================================
-profileRouter.get("/feed", userAuth, async (req, res) => {
+profileRouter.get("/admin/feed", userAuth, async (req, res) => {
   const users = await User.find().select("-password");
   res.json(users);
 });

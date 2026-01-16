@@ -7,7 +7,7 @@
 const express = require("express");
 const requestRouter = express.Router();
 
-const User = require("../models/User");
+const User = require("../models/user"); // ✅ FIXED
 const ConnectionRequest = require("../models/ConnectionRequest");
 const { userAuth } = require("../middlewares/auth");
 
@@ -36,24 +36,24 @@ requestRouter.post(
       /*
        * Cannot send request to yourself
        */
-      if (fromUserId.equals(toUserId)) {
+      if (fromUserId.toString() === toUserId) {
         return res.status(400).json({
-          message: "Cannot send request to yourself"
+          message: "You cannot send a request to yourself"
         });
       }
 
       /*
        * Check if target user exists
        */
-      const user = await User.findById(toUserId);
-      if (!user) {
+      const targetUser = await User.findById(toUserId);
+      if (!targetUser) {
         return res.status(404).json({
-          message: "User not found"
+          message: "Target user not found"
         });
       }
 
       /*
-       * Prevent duplicate / reverse requests
+       * Prevent duplicate OR reverse requests
        */
       const existingRequest =
         await ConnectionRequest.findOne({
@@ -70,7 +70,7 @@ requestRouter.post(
       }
 
       /*
-       * Create request
+       * Create new request
        */
       await ConnectionRequest.create({
         fromUserId,
@@ -78,7 +78,7 @@ requestRouter.post(
         status
       });
 
-      res.json({
+      res.status(201).json({
         message: `Connection request ${status} successfully`
       });
     } catch (err) {
@@ -91,7 +91,7 @@ requestRouter.post(
 
 /*
  * =================================================
- * ACCEPT / REJECT REQUEST
+ * ACCEPT / REJECT CONNECTION REQUEST
  * =================================================
  */
 requestRouter.post(
@@ -111,7 +111,8 @@ requestRouter.post(
       }
 
       /*
-       * Only interested requests can be reviewed
+       * Only receiver can review
+       * Only 'interested' requests can be reviewed
        */
       const request =
         await ConnectionRequest.findOne({
@@ -130,7 +131,7 @@ requestRouter.post(
       await request.save();
 
       res.json({
-        message: `Request ${status}`
+        message: `Connection request ${status} successfully`
       });
     } catch (err) {
       res.status(500).json({

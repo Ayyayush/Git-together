@@ -4,6 +4,7 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const connectDB = require("./config/database");
+const cors = require("cors");
 
 // Routes
 const authRouter = require("./routes/auth");
@@ -15,6 +16,20 @@ const userRouter = require("./routes/user");
 // App Init
 // ==========================
 const app = express();
+
+// ==========================
+// CORS Configuration
+// ==========================
+app.use(
+  cors({
+    origin: true,          // allows any origin dynamically
+    credentials: true,     // required for cookies
+  })
+);
+
+// ==========================
+// Middlewares
+// ==========================
 app.use(express.json());
 app.use(cookieParser());
 
@@ -32,9 +47,9 @@ app.use("/", userRouter);
 connectDB()
   .then(() => {
     console.log("Database connected");
-    app.listen(7777, () =>
-      console.log("Server running on port 7777")
-    );
+    app.listen(7777, () => {
+      console.log("Server running on port 7777");
+    });
   })
   .catch((err) => {
     console.error("DB connection failed", err);

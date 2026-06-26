@@ -1,29 +1,44 @@
 // ==========================
+// Environment Variables
+// ==========================
+require("dotenv").config();
+
+// ==========================
 // Imports
 // ==========================
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const connectDB = require("./config/database");
 const cors = require("cors");
+const http = require("http");
+
+const initializeSocket = require("./socket/socket");
 
 // Routes
 const authRouter = require("./routes/auth");
 const profileRouter = require("./routes/profile");
 const requestRouter = require("./routes/requests");
 const userRouter = require("./routes/user");
+const chatRouter = require("./routes/chat");
+const paymentRouter = require("./routes/payment");
 
 // ==========================
 // App Init
 // ==========================
 const app = express();
 
+const server = http.createServer(app);
+
+// Initialize Socket.io
+initializeSocket(server);
+
 // ==========================
 // CORS Configuration
 // ==========================
 app.use(
   cors({
-    origin: true,          // allows any origin dynamically
-    credentials: true,     // required for cookies
+    origin: "http://localhost:5173",
+    credentials: true,
   })
 );
 
@@ -40,6 +55,8 @@ app.use("/", authRouter);
 app.use("/", profileRouter);
 app.use("/", requestRouter);
 app.use("/", userRouter);
+app.use("/", chatRouter);
+app.use("/", paymentRouter);
 
 // ==========================
 // Start Server
@@ -47,8 +64,9 @@ app.use("/", userRouter);
 connectDB()
   .then(() => {
     console.log("Database connected");
-    app.listen(7777, () => {
-      console.log("Server running on port 7777");
+
+    server.listen(process.env.PORT, () => {
+      console.log(`Server running on port ${process.env.PORT}`);
     });
   })
   .catch((err) => {

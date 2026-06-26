@@ -5,6 +5,57 @@ const bcrypt = require("bcrypt");
 
 /*
  * ============================
+ * Project Sub-schema
+ * ============================
+ */
+const projectSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true,
+    trim: true,
+    maxlength: 100,
+  },
+  description: {
+    type: String,
+    required: true,
+    trim: true,
+    maxlength: 500,
+  },
+  github: {
+    type: String,
+    trim: true,
+    validate(value) {
+      if (value && !validator.isURL(value)) {
+        throw new Error("Invalid GitHub project URL");
+      }
+    },
+  },
+  live: {
+    type: String,
+    trim: true,
+    validate(value) {
+      if (value && !validator.isURL(value)) {
+        throw new Error("Invalid Live project URL");
+      }
+    },
+  },
+  techStack: {
+    type: [String],
+    default: [],
+  },
+  image: {
+    type: String,
+    default: "",
+    validate(value) {
+      if (value && !validator.isURL(value)) {
+        throw new Error("Invalid Project image URL");
+      }
+    },
+  },
+});
+
+/*
+ * ============================
  * User Schema
  * ============================
  */
@@ -15,12 +66,12 @@ const userSchema = new mongoose.Schema(
       required: true,
       minlength: 2,
       maxlength: 50,
-      trim: true
+      trim: true,
     },
 
     lastName: {
       type: String,
-      trim: true
+      trim: true,
     },
 
     emailId: {
@@ -33,7 +84,7 @@ const userSchema = new mongoose.Schema(
         if (!validator.isEmail(value)) {
           throw new Error("Invalid email address");
         }
-      }
+      },
     },
 
     /*
@@ -42,18 +93,28 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
-      minlength: 60
+      minlength: 60,
+    },
+
+    resetPasswordToken: {
+      type: String,
+      default: null,
+    },
+
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
     },
 
     age: {
       type: Number,
       min: 18,
-      max: 60
+      max: 60,
     },
 
     gender: {
       type: String,
-      enum: ["Male", "Female", "Other"]
+      enum: ["Male", "Female", "Other"],
     },
 
     photoUrl: {
@@ -64,33 +125,236 @@ const userSchema = new mongoose.Schema(
         if (!validator.isURL(value)) {
           throw new Error("Invalid photo URL");
         }
-      }
+      },
     },
 
     about: {
       type: String,
       default: "This is a default bio",
-      maxlength: 300
+      maxlength: 300,
     },
 
     skills: {
       type: [String],
       default: [],
       validate(value) {
-        if (value.length > 10) {
-          throw new Error("You can add a maximum of 10 skills");
+        if (value.length > 25) {
+          throw new Error("You can add a maximum of 25 skills");
         }
-      }
+      },
     },
 
     isActive: {
       type: Boolean,
-      default: true
-    }
+      default: true,
+    },
+
+    isPremium: {
+      type: Boolean,
+      default: false,
+    },
+
+    premiumType: {
+      type: String,
+      enum: ["Silver", "Gold"],
+      default: null,
+    },
+
+    premiumExpiry: {
+      type: Date,
+      default: null,
+    },
+
+    razorpayOrderId: {
+      type: String,
+      default: null,
+    },
+
+    razorpayPaymentId: {
+      type: String,
+      default: null,
+    },
+
+    /*
+     * ============================
+     * Extended Developer Fields (Task 1)
+     * ============================
+     */
+    developerTitle: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+      default: "",
+    },
+
+    college: {
+      type: String,
+      trim: true,
+      maxlength: 150,
+      default: "",
+    },
+
+    degree: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+      default: "",
+    },
+
+    graduationYear: {
+      type: Number,
+      min: 1970,
+      max: 2035,
+    },
+
+    company: {
+      type: String,
+      trim: true,
+      maxlength: 150,
+      default: "",
+    },
+
+    experienceLevel: {
+      type: String,
+      enum: ["Junior", "Mid", "Senior", "Lead", ""],
+      default: "",
+    },
+
+    location: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+      default: "",
+    },
+
+    portfolio: {
+      type: String,
+      trim: true,
+      validate(value) {
+        if (value && !validator.isURL(value)) {
+          throw new Error("Invalid portfolio URL");
+        }
+      },
+    },
+
+    resume: {
+      type: String,
+      trim: true,
+      validate(value) {
+        if (value && !validator.isURL(value)) {
+          throw new Error("Invalid resume URL");
+        }
+      },
+    },
+
+    github: {
+      type: String,
+      trim: true,
+      validate(value) {
+        if (value && !validator.isURL(value)) {
+          throw new Error("Invalid GitHub profile URL");
+        }
+      },
+    },
+
+    linkedin: {
+      type: String,
+      trim: true,
+      validate(value) {
+        if (value && !validator.isURL(value)) {
+          throw new Error("Invalid LinkedIn profile URL");
+        }
+      },
+    },
+
+    leetcode: {
+      type: String,
+      trim: true,
+      validate(value) {
+        if (value && !validator.isURL(value)) {
+          throw new Error("Invalid LeetCode profile URL");
+        }
+      },
+    },
+
+    codeforces: {
+      type: String,
+      trim: true,
+      validate(value) {
+        if (value && !validator.isURL(value)) {
+          throw new Error("Invalid Codeforces profile URL");
+        }
+      },
+    },
+
+    codechef: {
+      type: String,
+      trim: true,
+      validate(value) {
+        if (value && !validator.isURL(value)) {
+          throw new Error("Invalid CodeChef profile URL");
+        }
+      },
+    },
+
+    hackerrank: {
+      type: String,
+      trim: true,
+      validate(value) {
+        if (value && !validator.isURL(value)) {
+          throw new Error("Invalid HackerRank profile URL");
+        }
+      },
+    },
+
+    twitter: {
+      type: String,
+      trim: true,
+      validate(value) {
+        if (value && !validator.isURL(value)) {
+          throw new Error("Invalid Twitter profile URL");
+        }
+      },
+    },
+
+    website: {
+      type: String,
+      trim: true,
+      validate(value) {
+        if (value && !validator.isURL(value)) {
+          throw new Error("Invalid personal website URL");
+        }
+      },
+    },
+
+    projects: {
+      type: [projectSchema],
+      default: [],
+    },
+
+    availability: {
+      type: String,
+      enum: [
+        "Open to Internship",
+        "Open to Jobs",
+        "Open to Freelance",
+        "Hackathons",
+        "Mentorship",
+        "",
+      ],
+      default: "",
+    },
+
+    profileStrength: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 0,
+    },
   },
   {
-    timestamps: true
-  }
+    timestamps: true,
+  },
 );
 
 /*
@@ -111,13 +375,11 @@ userSchema.methods.getJWT = async function () {
   return jwt.sign(
     { _id: this._id },
     "DEVtinder$790", // move to env later
-    { expiresIn: "7d" }
+    { expiresIn: "7d" },
   );
 };
 
 /*
  * SAFE EXPORT (prevents OverwriteModelError)
  */
-module.exports =
-  mongoose.models.User ||
-  mongoose.model("User", userSchema);
+module.exports = mongoose.models.User || mongoose.model("User", userSchema);

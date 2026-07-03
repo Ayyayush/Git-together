@@ -35,12 +35,13 @@ initializeSocket(server);
 // ==========================
 // CORS Configuration
 // ==========================
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-  })
-);
+app.use(cors({
+    origin: [
+        "http://localhost:5173",
+        "https://git-together-frontend-nu.vercel.app"
+    ],
+    credentials: true
+}));
 
 // ==========================
 // Middlewares

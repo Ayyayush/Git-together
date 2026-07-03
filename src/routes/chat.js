@@ -2,7 +2,7 @@ const express = require("express");
 
 const chatRouter = express.Router();
 
-const Chat = require("../models/Chat");
+const Chat = require("../models/chat");
 const ConnectionRequest = require("../models/ConnectionRequest");
 
 const { userAuth } = require("../middlewares/auth");

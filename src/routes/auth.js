@@ -1,90 +1,81 @@
 const express = require("express");
 const authRouter = express.Router();
-
 const User = require("../models/user");
-const { validateSignupData } = require("../utils/validation");
 const bcrypt = require("bcrypt");
-const { userAuth } = require("../middlewares/auth");
 
-// =================================================
-// SIGNUP
-// =================================================
 authRouter.post("/signup", async (req, res) => {
   try {
-    validateSignupData(req);
+    const { firstName, lastName, emailId, password, username, age, gender } = req.body;
 
-    const { firstName, lastName, emailId, password } = req.body;
-
-    const existingUser = await User.findOne({ emailId });
-    if (existingUser) {
-      return res.status(400).json({ message: "Email already registered" });
+    if (!username) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Username is required"
+      });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const sanitizedUsername = username.trim().toLowerCase();
 
-    await User.create({
+    const existingUser = await User.findOne({ username: sanitizedUsername });
+    if (existingUser) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Username is already taken"
+      });
+    }
+
+    // Basic password hashing simulation based on common template logic
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    const user = new User({
       firstName,
       lastName,
       emailId,
-      password: hashedPassword,
+      password: passwordHash,
+      username: sanitizedUsername,
+      age,
+      gender
     });
 
-    res.status(201).json({ message: "User registered successfully" });
+    await user.save();
+    return res.status(201).json({
+      message: "User registered successfully",
+      data: user
+    });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    return res.status(400).json({
+      error: "Registration Failed",
+      message: err.message
+    });
   }
 });
 
-// =================================================
-// LOGIN
-// =================================================
 authRouter.post("/login", async (req, res) => {
   try {
     const { emailId, password } = req.body;
-
-    if (!emailId || !password) {
-      return res.status(400).json({ message: "Email and password required" });
-    }
-
-    const user = await User.findOne({ emailId });
+    const user = await User.findOne({ emailId: emailId });
     if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      throw new Error("Invalid credentials");
     }
 
     const isPasswordValid = await user.validatePassword(password);
     if (!isPasswordValid) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      throw new Error("Invalid credentials");
     }
 
     const token = await user.getJWT();
-
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    res.json({
+    res.cookie("token", token, { expires: new Date(Date.now() + 7 * 24 * 3600 * 1000), httpOnly: true });
+    return res.status(200).json({
       message: "Login successful",
-      user: {
-        _id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        emailId: user.emailId,
-      },
+      data: user
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(400).json({
+      error: "Login Failed",
+      message: err.message
+    });
   }
-});
-
-// =================================================
-// LOGOUT
-// =================================================
-authRouter.post("/logout", userAuth, (req, res) => {
-  res.clearCookie("token");
-  res.json({ message: "Logged out successfully" });
 });
 
 module.exports = authRouter;

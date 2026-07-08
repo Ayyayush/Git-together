@@ -1,120 +1,254 @@
-/*
- * ==========================
- * User Routes
- * ==========================
- */
+// routes/user.js
 
 const express = require("express");
 const userRouter = express.Router();
-
 const { userAuth } = require("../middlewares/auth");
-const User = require("../models/user"); // ✅ small u
-const ConnectionRequest = require("../models/ConnectionRequest");
+const ConnectionRequest = require("../models/connectionRequest");
+const User = require("../models/user");
+const mongoose = require("mongoose");
+const { recommendDevelopers } = require("../utils/recommendationEngine");
+
+const USER_SAFE_DATA = "firstName lastName username photoUrl about developerTitle company skills isPremium";
+
+// Escapes regex special characters in user-supplied search input to prevent ReDoS / regex injection
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /*
- * =================================================
- * GET RECEIVED CONNECTION REQUESTS
- * =================================================
- */
-userRouter.get("/user/requests", userAuth, async (req, res) => {
+
+==========================================
+
+GET /user/profile/:userId
+
+==========================================
+*/
+userRouter.get("/user/profile/:userId", userAuth, async (req, res) => {
   try {
-    const requests = await ConnectionRequest.find({
-      toUserId: req.user._id,
-      status: "interested",
-    }).populate("fromUserId", "firstName lastName photoUrl");
+    const { userId } = req.params;
 
-    res.json({
-      message: "Connection requests fetched successfully",
-      data: requests,
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid Developer ID format." });
+    }
 
-/*
- * =================================================
- * GET MY CONNECTIONS
- * =================================================
- */
-userRouter.get("/user/connections", userAuth, async (req, res) => {
-  try {
-    const userId = req.user._id;
-
-    const connections = await ConnectionRequest.find({
-      status: "accepted",
-      $or: [{ fromUserId: userId }, { toUserId: userId }],
-    }).populate("fromUserId toUserId", "firstName lastName photoUrl");
-
-    const result = connections.map((conn) =>
-      conn.fromUserId._id.equals(userId)
-        ? conn.toUserId
-        : conn.fromUserId
+    const user = await User.findById(userId).select(
+      "_id firstName lastName username photoUrl about developerTitle college degree graduationYear company experienceLevel location skills projects github linkedin portfolio resume website leetcode codeforces codechef hackerrank twitter availability isPremium profileStrength"
     );
 
-    res.json({
-      message: "Connections fetched successfully",
-      data: result,
+    if (!user) {
+      return res.status(404).json({ message: "Developer profile not found." });
+    }
+
+    res.status(200).json({
+      message: "Developer fetched successfully",
+      data: user,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: "ERROR: " + err.message });
   }
 });
 
 /*
- * =================================================
- * FEED API (WITH PAGINATION)
- * =================================================
- */
+
+==========================================
+
+GET /user/requests
+
+==========================================
+*/
+userRouter.get("/user/requests", userAuth, async (req, res) => {
+try {
+const loggedInUser = req.user;
+
+const connectionRequests = await ConnectionRequest.find({
+toUserId: loggedInUser._id,
+status: "interested",
+}).populate("fromUserId", "firstName lastName photoUrl about skills developerTitle company");
+
+const data = connectionRequests.filter((row) => row.fromUserId);
+
+res.json({
+message: "Requests fetched successfully",
+data,
+});
+} catch (err) {
+res.status(500).json({ message: "ERROR: " + err.message });
+}
+});  
+
+/* ==========================================   
+
+GET /user/connections   
+
+==========================================
+*/
+userRouter.get("/user/connections", userAuth, async (req, res) => {
+try {
+const loggedInUser = req.user;  
+
+const connectionRequests = await ConnectionRequest.find({
+$or: [
+{ toUserId: loggedInUser._id, status: "accepted" },
+{ fromUserId: loggedInUser._id, status: "accepted" },
+],
+})
+.populate("fromUserId", "firstName lastName photoUrl about skills developerTitle company")
+.populate("toUserId", "firstName lastName photoUrl about skills developerTitle company");  
+
+const data = connectionRequests.map((row) => {
+if (row.fromUserId && row.fromUserId._id.toString() === loggedInUser._id.toString()) {
+return row.toUserId;
+}
+return row.fromUserId;
+}).filter(user => user !== null && user !== undefined);
+
+res.json({ data });
+} catch (err) {
+res.status(500).json({ message: "ERROR: " + err.message });
+}
+});
+
+/*
+
+==========================================
+
+GET /feed
+
+==========================================
+*/
 userRouter.get("/feed", userAuth, async (req, res) => {
+try {
+const loggedInUser = req.user;
+
+const page = Math.max(1, parseInt(req.query.page) || 1);
+let limit = parseInt(req.query.limit) || 10;
+limit = Math.min(50, Math.max(1, limit));
+const skip = (page - 1) * limit;  
+
+const connectionRequests = await ConnectionRequest.find({
+$or: [{ fromUserId: loggedInUser._id }, { toUserId: loggedInUser._id }],
+}).select("fromUserId toUserId");  
+
+const hideUsersFromFeed = new Set();
+connectionRequests.forEach((connReq) => {
+if (connReq.fromUserId) hideUsersFromFeed.add(connReq.fromUserId.toString());
+if (connReq.toUserId) hideUsersFromFeed.add(connReq.toUserId.toString());
+});  
+
+const users = await User.find({
+$and: [
+{ _id: { $nin: Array.from(hideUsersFromFeed) } },
+{ _id: { $ne: loggedInUser._id } },
+],
+})
+.select("firstName lastName photoUrl about skills developerTitle company")
+.skip(skip)
+.limit(limit);  
+
+res.json({ data: users });
+} catch (err) {
+res.status(500).json({ message: err.message });
+}
+});
+
+/*
+
+==========================================
+
+GET /user/search
+
+==========================================
+*/
+userRouter.get("/user/search", userAuth, async (req, res) => {
+try {
+const queryParam = req.query.q;
+const queryStr = queryParam ? queryParam.trim() : "";
+
+if (!queryStr || queryStr.length < 2) {
+return res.status(400).json({
+message: "Search query must contain at least 2 characters.",
+});
+}
+
+const regex = new RegExp(escapeRegex(queryStr), "i");
+
+const users = await User.find({
+_id: { $ne: req.user._id },
+$or: [
+{ username: regex },
+{ firstName: regex },
+{ lastName: regex },
+{ skills: regex },
+{ developerTitle: regex },
+{ company: regex },
+{ college: regex },
+],
+})
+.select(USER_SAFE_DATA)
+.sort({ isPremium: -1, firstName: 1 })
+.limit(10);
+
+return res.status(200).json({
+message: "Search completed successfully",
+count: users.length,
+data: users,
+});
+} catch (err) {
+return res.status(500).json({
+error: "Internal Server Error",
+message: err.message,
+});
+}
+});
+
+/*
+
+==========================================
+
+GET /user/recommendations
+
+==========================================
+*/
+userRouter.get("/user/recommendations", userAuth, async (req, res) => {
   try {
-    const userId = req.user._id;
+    const loggedInUser = req.user;
 
-    /*
-     * Pagination params
-     */
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    if (!loggedInUser) {
+      return res.status(401).json({ message: "Unauthorized access." });
+    }
 
-    /*
-     * Find all interactions of logged-in user
-     */
-    const interactions = await ConnectionRequest.find({
-      $or: [{ fromUserId: userId }, { toUserId: userId }],
-    }).select("fromUserId toUserId");
+    // Fetch all connection requests related to the current user to build the exclusion list
+    const connectionRequests = await ConnectionRequest.find({
+      $or: [
+        { fromUserId: loggedInUser._id },
+        { toUserId: loggedInUser._id }
+      ]
+    }).select("fromUserId toUserId status");
 
-    /*
-     * Build ignored users list
-     */
-    const ignoredUsers = new Set();
-    ignoredUsers.add(userId.toString());
+    const exclusionSet = new Set();
+    exclusionSet.add(loggedInUser._id.toString());
 
-    interactions.forEach((req) => {
-      ignoredUsers.add(req.fromUserId.toString());
-      ignoredUsers.add(req.toUserId.toString());
+    connectionRequests.forEach((reqObj) => {
+      if (reqObj.fromUserId) exclusionSet.add(reqObj.fromUserId.toString());
+      if (reqObj.toUserId) exclusionSet.add(reqObj.toUserId.toString());
     });
 
-    /*
-     * Fetch feed users
-     */
-    const feedUsers = await User.find({
-      _id: { $nin: Array.from(ignoredUsers) },
-    })
-      .select("firstName lastName photoUrl about skills")
-      .skip(skip)
-      .limit(limit)
-      .sort({ createdAt: -1 });
+    // Find discoverable candidate developers who are not in the exclusion list
+    const candidates = await User.find({
+      _id: { $nin: Array.from(exclusionSet) },
+      isActive: true
+    }).select("_id firstName lastName username photoUrl developerTitle company college location skills availability isPremium");
 
-    res.json({
-      message: "Feed fetched successfully",
-      page,
-      limit,
-      count: feedUsers.length,
-      data: feedUsers,
+    // Pass the documents directly into the recommendation engine business logic layer
+    const recommendedData = recommendDevelopers(loggedInUser, candidates);
+
+    return res.status(200).json({
+      message: "Recommendations fetched successfully",
+      count: recommendedData.length,
+      data: recommendedData
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({
+      message: "ERROR: " + err.message
+    });
   }
 });
 

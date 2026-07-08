@@ -1,142 +1,82 @@
-/*
- * ==========================
- * Connection Request Routes
- * ==========================
- */
-
 const express = require("express");
 const requestRouter = express.Router();
-
-const User = require("../models/user"); // ✅ FIXED
-const ConnectionRequest = require("../models/ConnectionRequest");
 const { userAuth } = require("../middlewares/auth");
+const ConnectionRequest = require("../models/ConnectionRequest");
+const User = require("../models/User");
+const Notification = require("../models/Notification");
 
-/*
- * =================================================
- * SEND CONNECTION REQUEST (interested / ignored)
- * =================================================
- */
+// Emit structural utility to forward realtime events cleanly if user sockets match
+const emitToUser = (userId, event, data) => {
+  const globalIo = global.ioInstance;
+  const globalUserSockets = global.userSocketsMap;
+  if (globalIo && globalUserSockets && globalUserSockets.has(userId.toString())) {
+    const targetSockets = globalUserSockets.get(userId.toString());
+    targetSockets.forEach((sId) => {
+      globalIo.to(sId).emit(event, data);
+    });
+  }
+};
+
 requestRouter.post(
-  "/request/send/:status/:toUserId",
+  "/request/send/interested/:userId",
   userAuth,
   async (req, res) => {
     try {
       const fromUserId = req.user._id;
-      const { toUserId, status } = req.params;
+      const toUserId = req.params.userId;
 
-      /*
-       * Allowed statuses
-       */
-      if (!["interested", "ignored"].includes(status)) {
-        return res.status(400).json({
-          message: "Invalid request status"
-        });
+      const toUser = await User.findById(toUserId);
+      if (!toUser) {
+        return res.status(404).json({ message: "User not found" });
       }
 
-      /*
-       * Cannot send request to yourself
-       */
-      if (fromUserId.toString() === toUserId) {
-        return res.status(400).json({
-          message: "You cannot send a request to yourself"
-        });
+      const existingConnectionRequest = await ConnectionRequest.findOne({
+        $or: [
+          { fromUserId, toUserId },
+          { fromUserId: toUserId, toUserId: fromUserId },
+        ],
+      });
+
+      if (existingConnectionRequest) {
+        return res
+          .status(400)
+          .json({ message: "Connection Request Already Exists!" });
       }
 
-      /*
-       * Check if target user exists
-       */
-      const targetUser = await User.findById(toUserId);
-      if (!targetUser) {
-        return res.status(404).json({
-          message: "Target user not found"
-        });
-      }
-
-      /*
-       * Prevent duplicate OR reverse requests
-       */
-      const existingRequest =
-        await ConnectionRequest.findOne({
-          $or: [
-            { fromUserId, toUserId },
-            { fromUserId: toUserId, toUserId: fromUserId }
-          ]
-        });
-
-      if (existingRequest) {
-        return res.status(400).json({
-          message: "Connection request already exists"
-        });
-      }
-
-      /*
-       * Create new request
-       */
-      await ConnectionRequest.create({
+      const connectionRequest = new ConnectionRequest({
         fromUserId,
         toUserId,
-        status
+        status: "interested",
       });
 
-      res.status(201).json({
-        message: `Connection request ${status} successfully`
+      const data = await connectionRequest.save();
+
+      // Automatically construct structural Connection Request Notification safely
+      const titleText = "New Connection Request";
+      const messageText = `${req.user.firstName || "Someone"} sent you a connection request`;
+      
+      const newNotification = await Notification.create({
+        receiver: toUserId,
+        sender: fromUserId,
+        type: "connection_request",
+        title: titleText,
+        message: messageText,
+        link: "/request",
+        isRead: false,
       });
-    } catch (err) {
-      res.status(500).json({
-        message: err.message
-      });
-    }
-  }
-);
 
-/*
- * =================================================
- * ACCEPT / REJECT CONNECTION REQUEST
- * =================================================
- */
-requestRouter.post(
-  "/request/review/:status/:requestId",
-  userAuth,
-  async (req, res) => {
-    try {
-      const { status, requestId } = req.params;
+      const populatedNotification = await Notification.findById(newNotification._id)
+        .populate("sender", "firstName lastName photoUrl emailId");
 
-      /*
-       * Allowed review statuses
-       */
-      if (!["accepted", "rejected"].includes(status)) {
-        return res.status(400).json({
-          message: "Invalid review status"
-        });
-      }
-
-      /*
-       * Only receiver can review
-       * Only 'interested' requests can be reviewed
-       */
-      const request =
-        await ConnectionRequest.findOne({
-          _id: requestId,
-          toUserId: req.user._id,
-          status: "interested"
-        });
-
-      if (!request) {
-        return res.status(404).json({
-          message: "Request not found or already reviewed"
-        });
-      }
-
-      request.status = status;
-      await request.save();
+      // Push real-time network payload frame instantly down the pipe
+      emitToUser(toUserId, "new-notification", populatedNotification);
 
       res.json({
-        message: `Connection request ${status} successfully`
+        message: req.user.firstName + " is interested in " + toUser.firstName,
+        data,
       });
     } catch (err) {
-      res.status(500).json({
-        message: err.message
-      });
+      res.status(400).send("ERROR: " + err.message);
     }
   }
 );

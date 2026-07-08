@@ -7,13 +7,16 @@ const messageSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-
     text: {
       type: String,
       required: true,
       trim: true,
     },
-
+    status: {
+      type: String,
+      enum: ["sent", "delivered", "seen"],
+      default: "sent",
+    },
     seen: {
       type: Boolean,
       default: false,
@@ -33,7 +36,6 @@ const chatSchema = new mongoose.Schema(
         required: true,
       },
     ],
-
     messages: [messageSchema],
   },
   {

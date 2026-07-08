@@ -74,6 +74,23 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    username: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      minlength: 3,
+      maxlength: 30,
+      validate(value) {
+        if (!/^[a-z0-9_]+$/.test(value)) {
+          throw new Error(
+            "Username can contain only lowercase letters, numbers and underscores"
+          );
+        }
+      },
+    },
+
     emailId: {
       type: String,
       required: true,
@@ -156,7 +173,7 @@ const userSchema = new mongoose.Schema(
 
     premiumType: {
       type: String,
-      enum: ["Silver", "Gold"],
+      enum: ["Silver", "Gold", "Platinum"],
       default: null,
     },
 
@@ -173,6 +190,16 @@ const userSchema = new mongoose.Schema(
     razorpayPaymentId: {
       type: String,
       default: null,
+    },
+
+    isOnline: {
+      type: Boolean,
+      default: false,
+    },
+
+    lastSeen: {
+      type: Date,
+      default: Date.now,
     },
 
     /*
@@ -380,6 +407,13 @@ userSchema.methods.getJWT = async function () {
 };
 
 /*
- * SAFE EXPORT (prevents OverwriteModelError)
+ * ============================
+ * Search Indexes
+ * ============================
  */
+userSchema.index({ username: 1 });
+userSchema.index({ firstName: 1 });
+userSchema.index({ lastName: 1 });
+userSchema.index({ skills: 1 });
+
 module.exports = mongoose.models.User || mongoose.model("User", userSchema);

@@ -1,10 +1,15 @@
 {
   "name": "GitTogether",
   "version": "1.0.0",
-  "description": "tinder for devs",
+  "description": "AI-powered Developer Networking Platform Backend",
   "keywords": [
     "nodejs",
-    "javascript"
+    "express",
+    "mongodb",
+    "socket.io",
+    "jwt",
+    "langchain",
+    "groq"
   ],
   "homepage": "https://github.com/Ayyayush/Git-together#readme",
   "bugs": {
@@ -17,27 +22,29 @@
   "license": "ISC",
   "author": "Ayush Pandey",
   "type": "commonjs",
-  "main": "index.js",
+  "main": "src/app.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "nodemon src/app.js",
     "start": "node src/app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "@langchain/groq": "^1.3.1",
+    "@langchain/core": "^0.3.0",
+    "@langchain/groq": "^0.2.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
+    "langchain": "^0.3.0",
     "mongoose": "^9.1.2",
     "razorpay": "^2.9.6",
     "socket.io": "^4.8.3",
     "validator": "^13.15.26",
-    "langchain": "^0.3.0",
-    "@langchain/core": "^0.3.0",
-    "@langchain/groq": "^0.2.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {

@@ -1,5 +1,3 @@
-// app.js
-
 // ==========================
 // Environment Variables
 // ==========================
@@ -10,10 +8,10 @@ require("dotenv").config();
 // ==========================
 const express = require("express");
 const cookieParser = require("cookie-parser");
-const connectDB = require("./config/database");
 const cors = require("cors");
 const http = require("http");
 
+const connectDB = require("./config/database");
 const initializeSocket = require("./socket/socket");
 
 // Routes
@@ -26,25 +24,40 @@ const paymentRouter = require("./routes/payment");
 const notificationRouter = require("./routes/notification");
 
 // ==========================
-// App Init
+// App Initialization
 // ==========================
 const app = express();
-
 const server = http.createServer(app);
 
-// Initialize Socket.io
+// ==========================
+// Socket.io
+// ==========================
 initializeSocket(server);
 
 // ==========================
 // CORS Configuration
 // ==========================
-app.use(cors({
-    origin: [
-        "http://localhost:5173",
-        "https://git-together-frontend-nu.vercel.app"
-    ],
-    credentials: true
-}));
+const allowedOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(",").map((origin) => origin.trim())
+  : ["http://localhost:5173"];
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Allow non-browser requests (Postman, curl, server-to-server)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  })
+);
 
 // ==========================
 // Middlewares
@@ -53,7 +66,17 @@ app.use(express.json());
 app.use(cookieParser());
 
 // ==========================
-// Routes Mounting
+// Health Check
+// ==========================
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "GitTogether Backend is running",
+  });
+});
+
+// ==========================
+// Routes
 // ==========================
 app.use("/", authRouter);
 app.use("/", profileRouter);
@@ -64,17 +87,29 @@ app.use("/", paymentRouter);
 app.use("/", notificationRouter);
 
 // ==========================
+// 404 Handler
+// ==========================
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Route not found",
+  });
+});
+
+// ==========================
 // Start Server
 // ==========================
+const PORT = process.env.PORT || 7777;
+
 connectDB()
   .then(() => {
-    console.log("Database connected");
+    console.log("Database connected successfully.");
 
-    server.listen(process.env.PORT, () => {
-      console.log(`Server running on port ${process.env.PORT}`);
+    server.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
     });
   })
   .catch((err) => {
-    console.error("DB connection failed", err);
+    console.error("Database connection failed:", err);
     process.exit(1);
   });

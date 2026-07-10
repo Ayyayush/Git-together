@@ -6,10 +6,19 @@ const validator = require("validator");
  * ============================
  */
 const validateSignupData = (req) => {
-  const { firstName, lastName, emailId, password } = req.body;
+  const { firstName, lastName, emailId, password, username } = req.body;
 
-  if (!firstName || !lastName || !emailId || !password) {
+  if (!firstName || !lastName || !emailId || !password || !username) {
     throw new Error("All fields are required");
+  }
+
+  const usernameRegex = /^[a-z0-9_]+$/;
+  if (!usernameRegex.test(username)) {
+    throw new Error("Username can only contain lowercase letters, numbers, and underscores");
+  }
+
+  if (username.length < 3 || username.length > 30) {
+    throw new Error("Username must be between 3 and 30 characters long");
   }
 
   if (!validator.isEmail(emailId)) {
@@ -20,8 +29,8 @@ const validateSignupData = (req) => {
     throw new Error("Password must be at least 8 characters long");
   }
 
-  if (firstName.length < 3 || lastName.length < 3) {
-    throw new Error("Name must be at least 3 characters long");
+  if (firstName.length < 2 || lastName.length < 1) {
+    throw new Error("Please enter a valid first and last name");
   }
 };
 
@@ -35,12 +44,12 @@ const validateEditProfileData = (req) => {
     "firstName",
     "lastName",
     "emailId",
+    "username",
     "photoUrl",
     "gender",
     "age",
     "about",
     "skills",
-    // New Developer profile fields
     "developerTitle",
     "college",
     "degree",
@@ -72,7 +81,16 @@ const validateEditProfileData = (req) => {
     throw new Error("Invalid fields for profile update");
   }
 
-  // Deep Validation for specific fields
+  if (req.body.username) {
+    const usernameRegex = /^[a-z0-9_]+$/;
+    if (!usernameRegex.test(req.body.username)) {
+      throw new Error("Username can only contain lowercase letters, numbers, and underscores");
+    }
+    if (req.body.username.length < 3 || req.body.username.length > 30) {
+      throw new Error("Username must be between 3 and 30 characters long");
+    }
+  }
+
   const urlFields = [
     "photoUrl",
     "portfolio",

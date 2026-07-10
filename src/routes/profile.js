@@ -1,9 +1,12 @@
+// routes/profile.js
+
 const express = require("express");
 const profileRouter = express.Router();
 
 const User = require("../models/user");
 const { userAuth } = require("../middlewares/auth");
 const { validateEditProfileData } = require("../utils/validation");
+const { generateProfileSuggestions } = require("../services/profileCoach");
 
 // =================================================
 // GET PROFILE
@@ -78,6 +81,31 @@ profileRouter.get("/admin/feed", userAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: err.message,
+    });
+  }
+});
+
+// =================================================
+// POST /profile/coach
+// =================================================
+profileRouter.post("/profile/coach", userAuth, async (req, res) => {
+  try {
+    const loggedInUser = req.user;
+    if (!loggedInUser) {
+      return res.status(401).json({ success: false, message: "Unauthorized access." });
+    }
+
+    const suggestions = await generateProfileSuggestions(loggedInUser);
+
+    return res.status(200).json({
+      success: true,
+      suggestions: suggestions
+    });
+  } catch (error) {
+    return res.status(200).json({
+      success: false,
+      message: "Unable to generate suggestions right now.",
+      error: error.message
     });
   }
 });

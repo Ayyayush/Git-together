@@ -1,3 +1,4 @@
+// src/models/user.js
 const mongoose = require("mongoose");
 const validator = require("validator");
 const jwt = require("jsonwebtoken");
@@ -410,8 +411,10 @@ userSchema.methods.getJWT = async function () {
  * ============================
  * Search Indexes
  * ============================
+ * NOTE: `username` already has `unique: true` above, which creates
+ * its own index. The explicit userSchema.index({ username: 1 }) call
+ * was creating a duplicate index and has been removed.
  */
-userSchema.index({ username: 1 });
 userSchema.index({ firstName: 1 });
 userSchema.index({ lastName: 1 });
 userSchema.index({ skills: 1 });

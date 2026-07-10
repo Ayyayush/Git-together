@@ -2,14 +2,18 @@ const express = require("express");
 const requestRouter = express.Router();
 const { userAuth } = require("../middlewares/auth");
 const ConnectionRequest = require("../models/ConnectionRequest");
-const User = require("../models/User");
+const User = require("../models/user");
 const Notification = require("../models/Notification");
 
 // Emit structural utility to forward realtime events cleanly if user sockets match
 const emitToUser = (userId, event, data) => {
   const globalIo = global.ioInstance;
   const globalUserSockets = global.userSocketsMap;
-  if (globalIo && globalUserSockets && globalUserSockets.has(userId.toString())) {
+  if (
+    globalIo &&
+    globalUserSockets &&
+    globalUserSockets.has(userId.toString())
+  ) {
     const targetSockets = globalUserSockets.get(userId.toString());
     targetSockets.forEach((sId) => {
       globalIo.to(sId).emit(event, data);
@@ -54,7 +58,7 @@ requestRouter.post(
       // Automatically construct structural Connection Request Notification safely
       const titleText = "New Connection Request";
       const messageText = `${req.user.firstName || "Someone"} sent you a connection request`;
-      
+
       const newNotification = await Notification.create({
         receiver: toUserId,
         sender: fromUserId,
@@ -65,8 +69,9 @@ requestRouter.post(
         isRead: false,
       });
 
-      const populatedNotification = await Notification.findById(newNotification._id)
-        .populate("sender", "firstName lastName photoUrl emailId");
+      const populatedNotification = await Notification.findById(
+        newNotification._id,
+      ).populate("sender", "firstName lastName photoUrl emailId");
 
       // Push real-time network payload frame instantly down the pipe
       emitToUser(toUserId, "new-notification", populatedNotification);
@@ -78,7 +83,7 @@ requestRouter.post(
     } catch (err) {
       res.status(400).send("ERROR: " + err.message);
     }
-  }
+  },
 );
 
 module.exports = requestRouter;

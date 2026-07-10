@@ -2,7 +2,7 @@ const express = require("express");
 const chatRouter = express.Router();
 const Chat = require("../models/chat");
 const ConnectionRequest = require("../models/ConnectionRequest");
-const User = require("../models/User");
+const User = require("../models/user");
 const { userAuth } = require("../middlewares/auth");
 
 // Fetch single direct conversation context profile metadata and records
@@ -29,7 +29,10 @@ chatRouter.get("/chat/:targetUserId", userAuth, async (req, res) => {
     let chat = await Chat.findOne({
       participants: { $all: [loggedInUserId, targetUserId] },
     })
-      .populate("participants", "firstName lastName photoUrl emailId isOnline lastSeen")
+      .populate(
+        "participants",
+        "firstName lastName photoUrl emailId isOnline lastSeen",
+      )
       .populate("messages.senderId", "firstName lastName photoUrl");
 
     if (!chat) {
@@ -39,12 +42,15 @@ chatRouter.get("/chat/:targetUserId", userAuth, async (req, res) => {
       });
 
       chat = await Chat.findById(chat._id)
-        .populate("participants", "firstName lastName photoUrl emailId isOnline lastSeen")
+        .populate(
+          "participants",
+          "firstName lastName photoUrl emailId isOnline lastSeen",
+        )
         .populate("messages.senderId", "firstName lastName photoUrl");
     }
 
     const targetUser = chat.participants.find(
-      (participant) => participant._id.toString() !== loggedInUserId.toString()
+      (participant) => participant._id.toString() !== loggedInUserId.toString(),
     );
 
     return res.status(200).json({
@@ -70,34 +76,42 @@ chatRouter.get("/chats/conversations", userAuth, async (req, res) => {
     const chats = await Chat.find({
       participants: loggedInUserId,
     })
-      .populate("participants", "firstName lastName photoUrl emailId isOnline lastSeen")
+      .populate(
+        "participants",
+        "firstName lastName photoUrl emailId isOnline lastSeen",
+      )
       .populate("messages.senderId", "firstName lastName photoUrl")
       .sort({ updatedAt: -1 });
 
-    const formattedConversations = chats.map((chat) => {
-      const targetUser = chat.participants.find(
-        (p) => p._id.toString() !== loggedInUserId.toString()
-      );
+    const formattedConversations = chats
+      .map((chat) => {
+        const targetUser = chat.participants.find(
+          (p) => p._id.toString() !== loggedInUserId.toString(),
+        );
 
-      if (!targetUser) return null;
+        if (!targetUser) return null;
 
-      const unreadCount = chat.messages.reduce((acc, msg) => {
-        if (msg.senderId._id.toString() !== loggedInUserId.toString() && msg.status !== "seen") {
-          return acc + 1;
-        }
-        return acc;
-      }, 0);
+        const unreadCount = chat.messages.reduce((acc, msg) => {
+          if (
+            msg.senderId._id.toString() !== loggedInUserId.toString() &&
+            msg.status !== "seen"
+          ) {
+            return acc + 1;
+          }
+          return acc;
+        }, 0);
 
-      const lastMessage = chat.messages[chat.messages.length - 1] || null;
+        const lastMessage = chat.messages[chat.messages.length - 1] || null;
 
-      return {
-        chatId: chat._id,
-        targetUser,
-        lastMessage,
-        unreadCount,
-        updatedAt: chat.updatedAt,
-      };
-    }).filter(Boolean);
+        return {
+          chatId: chat._id,
+          targetUser,
+          lastMessage,
+          unreadCount,
+          updatedAt: chat.updatedAt,
+        };
+      })
+      .filter(Boolean);
 
     return res.status(200).json({
       success: true,

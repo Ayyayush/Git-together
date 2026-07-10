@@ -3,7 +3,7 @@
 const express = require("express");
 const userRouter = express.Router();
 const { userAuth } = require("../middlewares/auth");
-const ConnectionRequest = require("../models/connectionRequest");
+const ConnectionRequest = require("../models/ConnectionRequest");
 const User = require("../models/user");
 const mongoose = require("mongoose");
 const { recommendDevelopers, calculateRecommendationScore } = require("../utils/recommendationEngine");

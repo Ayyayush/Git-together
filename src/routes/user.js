@@ -115,30 +115,48 @@ userRouter.get("/feed", userAuth, async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     let limit = parseInt(req.query.limit) || 10;
     limit = Math.min(50, Math.max(1, limit));
-    const skip = (page - 1) * limit;  
+    const skip = (page - 1) * limit;
 
     const connectionRequests = await ConnectionRequest.find({
       $or: [{ fromUserId: loggedInUser._id }, { toUserId: loggedInUser._id }],
-    }).select("fromUserId toUserId");  
+    }).select("fromUserId toUserId");
 
     const hideUsersFromFeed = new Set();
     connectionRequests.forEach((connReq) => {
       if (connReq.fromUserId) hideUsersFromFeed.add(connReq.fromUserId.toString());
       if (connReq.toUserId) hideUsersFromFeed.add(connReq.toUserId.toString());
-    });  
+    });
 
-    const users = await User.find({
+    const feedFilter = {
       $and: [
         { _id: { $nin: Array.from(hideUsersFromFeed) } },
         { _id: { $ne: loggedInUser._id } },
       ],
-    })
-    .select("firstName lastName photoUrl about skills developerTitle company isPremium createdAt")
-    .sort({ isPremium: -1, createdAt: -1 })
-    .skip(skip)
-    .limit(limit);  
+    };
 
-    res.json({ data: users });
+    // Run the page query and the total count in parallel. The count uses the
+    // exact same filter, so hasMore/totalPages stay correct as the exclusion
+    // set (connections/requests) changes between page fetches.
+    const [users, totalCount] = await Promise.all([
+      User.find(feedFilter)
+        .select("firstName lastName photoUrl about skills developerTitle company isPremium createdAt")
+        .sort({ isPremium: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      User.countDocuments(feedFilter),
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+    const hasMore = skip + users.length < totalCount;
+
+    res.json({
+      data: users,
+      page,
+      limit,
+      total: totalCount,
+      totalPages,
+      hasMore,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

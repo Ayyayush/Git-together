@@ -6,7 +6,7 @@ const profileRouter = express.Router();
 const User = require("../models/user");
 const { userAuth } = require("../middlewares/auth");
 const { validateEditProfileData } = require("../utils/validation");
-const { generateProfileSuggestions } = require("../services/profileCoach");
+const { generateProfileSuggestions, generateCoachChatReply } = require("../services/profileCoach");
 
 // =================================================
 // GET PROFILE
@@ -86,7 +86,7 @@ profileRouter.get("/admin/feed", userAuth, async (req, res) => {
 });
 
 // =================================================
-// POST /profile/coach
+// POST /profile/coach — one-shot structured suggestions report
 // =================================================
 profileRouter.post("/profile/coach", userAuth, async (req, res) => {
   try {
@@ -97,15 +97,67 @@ profileRouter.post("/profile/coach", userAuth, async (req, res) => {
 
     const suggestions = await generateProfileSuggestions(loggedInUser);
 
+    if (!suggestions) {
+      return res.status(200).json({
+        success: false,
+        message: "Unable to generate suggestions right now.",
+      });
+    }
+
     return res.status(200).json({
       success: true,
-      suggestions: suggestions
+      suggestions: suggestions,
     });
   } catch (error) {
     return res.status(200).json({
       success: false,
       message: "Unable to generate suggestions right now.",
-      error: error.message
+      error: error.message,
+    });
+  }
+});
+
+// =================================================
+// POST /profile/coach/chat — conversational follow-up turns
+// Reuses the same profile + previously generated suggestions as context,
+// plus the client-supplied conversation history, so the AI never needs
+// the report regenerated to keep chatting.
+// =================================================
+profileRouter.post("/profile/coach/chat", userAuth, async (req, res) => {
+  try {
+    const loggedInUser = req.user;
+    if (!loggedInUser) {
+      return res.status(401).json({ success: false, message: "Unauthorized access." });
+    }
+
+    const { message, history, suggestions } = req.body;
+
+    if (!message || typeof message !== "string" || !message.trim()) {
+      return res.status(400).json({ success: false, message: "A message is required." });
+    }
+
+    // Cap history defensively regardless of what the client sends, to
+    // bound token usage per request.
+    const safeHistory = Array.isArray(history) ? history.slice(-16) : [];
+
+    const reply = await generateCoachChatReply(loggedInUser, suggestions, safeHistory, message.trim());
+
+    if (reply === null) {
+      return res.status(200).json({
+        success: false,
+        message: "Unable to reach the AI Coach right now.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      reply: reply,
+    });
+  } catch (error) {
+    return res.status(200).json({
+      success: false,
+      message: "Unable to reach the AI Coach right now.",
+      error: error.message,
     });
   }
 });

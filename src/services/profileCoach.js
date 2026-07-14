@@ -7,6 +7,9 @@ let ChatGroq = null;
 let ChatPromptTemplate = null;
 let RunnableSequence = null;
 let StructuredOutputParser = null;
+let SystemMessage = null;
+let HumanMessage = null;
+let AIMessage = null;
 let z = null;
 
 try {
@@ -14,6 +17,7 @@ try {
   ({ ChatPromptTemplate } = require("@langchain/core/prompts"));
   ({ RunnableSequence } = require("@langchain/core/runnables"));
   ({ StructuredOutputParser } = require("langchain/output_parsers"));
+  ({ SystemMessage, HumanMessage, AIMessage } = require("@langchain/core/messages"));
   ({ z } = require("zod"));
 } catch (loadErr) {
   console.error("profileCoach: LangChain/Groq dependencies unavailable, AI profile coaching disabled.", loadErr.message);
@@ -34,6 +38,25 @@ if (apiKey && ChatGroq) {
   } catch (initErr) {
     console.error("profileCoach: Failed to initialize ChatGroq model, AI profile coaching disabled.", initErr.message);
     model = null;
+  }
+}
+
+// Separate ChatGroq instance dedicated to free-form conversational turns.
+// Kept distinct from `model` above (which is wired to the structured
+// RunnableSequence) so chat token budgets/temperature can diverge without
+// touching the existing suggestions pipeline.
+let chatModel = null;
+if (apiKey && ChatGroq) {
+  try {
+    chatModel = new ChatGroq({
+      apiKey: apiKey,
+      modelName: modelName,
+      temperature: 0.6,
+      maxTokens: 700,
+    });
+  } catch (initErr) {
+    console.error("profileCoach: Failed to initialize chat ChatGroq model, AI Coach chat disabled.", initErr.message);
+    chatModel = null;
   }
 }
 
@@ -231,6 +254,122 @@ async function generateProfileSuggestions(user) {
   };
 }
 
+/**
+ * Builds the shared system context string reused across every chat turn:
+ * the developer's own profile fields plus the previously generated
+ * structured coaching report (if any). Keeping this in one helper means
+ * the chat model always "remembers" the profile + report without needing
+ * generateProfileSuggestions to be re-run for every message.
+ * @param {Object} user
+ * @param {Object|null} suggestions - Previously generated report from
+ *   generateProfileSuggestions, as forwarded by the client.
+ * @returns {string}
+ */
+function buildChatSystemPrompt(user, suggestions) {
+  const profileContext =
+    "Developer Profile:\n" +
+    `- Name: ${user.firstName || "Not specified"} ${user.lastName || ""}\n` +
+    `- Title/Headline: ${user.developerTitle || "Not specified"}\n` +
+    `- About/Bio: ${user.about || "Not specified"}\n` +
+    `- Skills: ${Array.isArray(user.skills) && user.skills.length ? user.skills.join(", ") : "None specified"}\n` +
+    `- Projects: ${Array.isArray(user.projects) && user.projects.length ? `${user.projects.length} project(s) listed` : "No projects listed yet"}\n` +
+    `- College/Degree: ${user.college || "Not specified"} (${user.degree || "Not specified"})\n` +
+    `- Company: ${user.company || "Not specified"}\n` +
+    `- Experience Level: ${user.experienceLevel || "Not specified"}\n` +
+    `- Availability: ${user.availability || "Not specified"}\n` +
+    `- Profile Strength Score: ${user.profileStrength || 0}/100\n` +
+    `- Connected Assets: GitHub: ${user.github ? "Linked" : "Missing"} | LinkedIn: ${user.linkedin ? "Linked" : "Missing"} | Portfolio: ${user.portfolio ? "Linked" : "Missing"} | Resume: ${user.resume ? "Uploaded" : "Missing"}`;
+
+  const reportContext = suggestions
+    ? "\n\nPreviously Generated Coaching Report (for context, don't just repeat it):\n" +
+      `- Overall Score: ${suggestions.overallScore}/100\n` +
+      `- Summary: ${suggestions.summary}\n` +
+      `- Strengths: ${Array.isArray(suggestions.strengths) ? suggestions.strengths.join(" | ") : "None"}\n` +
+      `- Missing Fields: ${Array.isArray(suggestions.missingFields) ? suggestions.missingFields.join(", ") : "None"}\n` +
+      `- Improvements: ${Array.isArray(suggestions.improvements) ? suggestions.improvements.join(" | ") : "None"}\n` +
+      `- Suggested Skills: ${Array.isArray(suggestions.suggestedSkills) ? suggestions.suggestedSkills.join(", ") : "None"}\n` +
+      `- Suggested Bio: ${suggestions.betterBio || "None"}`
+    : "\n\nNo coaching report has been generated yet for this session.";
+
+  return (
+    "You are 'AI Profile Coach', an elite Tech Career Coach and Profile Optimizer for 'Git-Together', a professional networking platform for developers. " +
+    "Continue the conversation naturally, like a sharp, direct human coach would. Be concise (a few short paragraphs or a short list at most), " +
+    "practical, and specific to the developer's actual profile and prior report below. Do not repeat the full report verbatim unless asked. " +
+    "Respond in plain, friendly text — NOT JSON, NOT markdown code fences.\n\n" +
+    profileContext +
+    reportContext
+  );
+}
+
+/**
+ * Generates a free-form conversational reply for the AI Coach chat,
+ * reusing the developer's profile and previously generated structured
+ * report as context, plus prior turns in `history`, so the user never
+ * needs to regenerate the report to keep chatting.
+ *
+ * `history` is an array of { role: "user" | "assistant", content: string }
+ * turns preceding the current message, as forwarded by the client.
+ *
+ * Error handling contract: mirrors generateProfileSuggestions — this
+ * function NEVER throws. On any failure (AI layer unavailable, Groq call
+ * fails, or an unusable response shape) it returns null so the calling
+ * route can respond with a graceful "unable to reach AI Coach" message
+ * instead of crashing.
+ *
+ * @param {Object} user - The logged-in user's data object.
+ * @param {Object|null} suggestions - Previously generated coaching report.
+ * @param {Array<{role: string, content: string}>} history - Prior chat turns.
+ * @param {string} message - The user's new chat message.
+ * @returns {Promise<string|null>} The AI's reply text, or null on failure.
+ */
+async function generateCoachChatReply(user, suggestions, history, message) {
+  if (!chatModel || !SystemMessage || !HumanMessage || !AIMessage) {
+    return null;
+  }
+
+  const systemPrompt = buildChatSystemPrompt(user, suggestions);
+
+  // Cap history defensively regardless of what the client sends, to bound
+  // token usage per request.
+  const safeHistory = Array.isArray(history) ? history.slice(-16) : [];
+
+  const messages = [
+    new SystemMessage(systemPrompt),
+    ...safeHistory.map((turn) =>
+      turn && turn.role === "assistant"
+        ? new AIMessage(turn.content || "")
+        : new HumanMessage((turn && turn.content) || "")
+    ),
+    new HumanMessage(message),
+  ];
+
+  let result;
+  try {
+    result = await chatModel.invoke(messages);
+  } catch (error) {
+    console.error("profileCoach: AI Coach chat reply failed.", error.message);
+    return null;
+  }
+
+  let text = result?.content;
+
+  // ChatGroq/LangChain can return content as a plain string or as an array
+  // of content blocks depending on version; normalize both.
+  if (Array.isArray(text)) {
+    text = text
+      .map((block) => (typeof block === "string" ? block : block?.text || ""))
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  if (typeof text !== "string" || !text.trim()) {
+    return null;
+  }
+
+  return text.trim();
+}
+
 module.exports = {
   generateProfileSuggestions,
+  generateCoachChatReply,
 };

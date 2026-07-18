@@ -402,7 +402,7 @@ userSchema.methods.validatePassword = async function (passwordInputByUser) {
 userSchema.methods.getJWT = async function () {
   return jwt.sign(
     { _id: this._id },
-    "DEVtinder$790", // move to env later
+    process.env.JWT_SECRET || "DEVtinder$790", // Use env variable, fallback for local dev
     { expiresIn: "7d" },
   );
 };

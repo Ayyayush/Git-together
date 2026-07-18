@@ -86,4 +86,153 @@ requestRouter.post(
   },
 );
 
+requestRouter.post(
+  "/request/accept/:requestId",
+  userAuth,
+  async (req, res) => {
+    try {
+      const loggedInUserId = req.user._id;
+      const { requestId } = req.params;
+
+      const connectionRequest = await ConnectionRequest.findOne({
+        _id: requestId,
+        toUserId: loggedInUserId,
+        status: "interested",
+      });
+
+      if (!connectionRequest) {
+        return res
+          .status(404)
+          .json({ message: "Connection Request not found or access denied" });
+      }
+
+      connectionRequest.status = "accepted";
+      await connectionRequest.save();
+
+      // Create notification for the requester
+      const titleText = "Connection Accepted";
+      const messageText = `${req.user.firstName || "Someone"} accepted your connection request`;
+
+      const newNotification = await Notification.create({
+        receiver: connectionRequest.fromUserId,
+        sender: loggedInUserId,
+        type: "connection_accepted",
+        title: titleText,
+        message: messageText,
+        link: "/connection",
+        isRead: false,
+      });
+
+      const populatedNotification = await Notification.findById(
+        newNotification._id
+      ).populate("sender", "firstName lastName photoUrl emailId");
+
+      emitToUser(connectionRequest.fromUserId, "new-notification", populatedNotification);
+
+      res.json({
+        message: "Connection Request Accepted",
+        data: connectionRequest,
+      });
+    } catch (err) {
+      res.status(400).send("ERROR: " + err.message);
+    }
+  }
+);
+
+requestRouter.post(
+  "/request/reject/:requestId",
+  userAuth,
+  async (req, res) => {
+    try {
+      const loggedInUserId = req.user._id;
+      const { requestId } = req.params;
+
+      const connectionRequest = await ConnectionRequest.findOne({
+        _id: requestId,
+        toUserId: loggedInUserId,
+        status: "interested",
+      });
+
+      if (!connectionRequest) {
+        return res
+          .status(404)
+          .json({ message: "Connection Request not found or access denied" });
+      }
+
+      await ConnectionRequest.deleteOne({ _id: requestId });
+
+      res.json({
+        message: "Connection Request Rejected",
+        data: { _id: requestId },
+      });
+    } catch (err) {
+      res.status(400).send("ERROR: " + err.message);
+    }
+  }
+);
+
+requestRouter.post(
+  "/request/send/collaborate/:userId",
+  userAuth,
+  async (req, res) => {
+    try {
+      const fromUserId = req.user._id;
+      const toUserId = req.params.userId;
+
+      const toUser = await User.findById(toUserId);
+      if (!toUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const existingConnectionRequest = await ConnectionRequest.findOne({
+        $or: [
+          { fromUserId, toUserId },
+          { fromUserId: toUserId, toUserId: fromUserId },
+        ],
+      });
+
+      if (existingConnectionRequest) {
+        return res
+          .status(400)
+          .json({ message: "Connection Request Already Exists!" });
+      }
+
+      const connectionRequest = new ConnectionRequest({
+        fromUserId,
+        toUserId,
+        status: "interested",
+      });
+
+      const data = await connectionRequest.save();
+
+      // Create notification for collaborate action
+      const titleText = "Collaboration Request";
+      const messageText = `${req.user.firstName || "Someone"} wants to collaborate with you`;
+
+      const newNotification = await Notification.create({
+        receiver: toUserId,
+        sender: fromUserId,
+        type: "collaboration_request",
+        title: titleText,
+        message: messageText,
+        link: "/request",
+        isRead: false,
+      });
+
+      const populatedNotification = await Notification.findById(
+        newNotification._id
+      ).populate("sender", "firstName lastName photoUrl emailId");
+
+      emitToUser(toUserId, "new-notification", populatedNotification);
+
+      res.json({
+        message: req.user.firstName + " wants to collaborate with " + toUser.firstName,
+        data,
+      });
+    } catch (err) {
+      res.status(400).send("ERROR: " + err.message);
+    }
+  }
+);
+
 module.exports = requestRouter;

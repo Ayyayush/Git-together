@@ -12,8 +12,8 @@ const userAuth = async (req, res, next) => {
       });
     }
 
-    // ⚠️ SAME SECRET AS user.js
-    const decoded = jwt.verify(token, "DEVtinder$790");
+    // ⚠️ SAME SECRET AS user.js - Use env variable with fallback for local dev
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "DEVtinder$790");
 
     const user = await User.findById(decoded._id).select("-password");
 

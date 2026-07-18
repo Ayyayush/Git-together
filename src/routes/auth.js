@@ -117,4 +117,37 @@ authRouter.post("/logout", (req, res) => {
   });
 });
 
+authRouter.get("/auth/check-username", async (req, res) => {
+  try {
+    const { username } = req.query;
+
+    if (!username || username.length < 3) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Username must be at least 3 characters",
+      });
+    }
+
+    const sanitizedUsername = username.trim().toLowerCase();
+
+    const existingUser = await User.findOne({ username: sanitizedUsername });
+    if (existingUser) {
+      return res.status(200).json({
+        available: false,
+        message: "Username is already taken",
+      });
+    }
+
+    return res.status(200).json({
+      available: true,
+      message: "Username is available",
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: err.message,
+    });
+  }
+});
+
 module.exports = authRouter;

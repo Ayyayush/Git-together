@@ -84,7 +84,7 @@ app.use("/", requestRouter);
 app.use("/", userRouter);
 app.use("/", chatRouter);
 app.use("/", paymentRouter);
-app.use("/", notificationRouter);
+app.use("/notifications", notificationRouter);
 
 // ==========================
 // 404 Handler

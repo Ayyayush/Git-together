@@ -5,8 +5,42 @@ const profileRouter = express.Router();
 
 const User = require("../models/user");
 const { userAuth } = require("../middlewares/auth");
-const { validateEditProfileData } = require("../utils/validation");
-const { generateProfileSuggestions, generateCoachChatReply } = require("../services/profileCoach");
+
+// =================================================
+// WHITELIST OF EDITABLE FIELDS
+// =================================================
+// Only these fields can be updated via /profile/edit
+const EDITABLE_FIELDS = [
+  "firstName",
+  "lastName",
+  "photoUrl",
+  "age",
+  "gender",
+  "about",
+  "developerTitle",
+  "college",
+  "degree",
+  "graduationYear",
+  "company",
+  "experienceLevel",
+  "location",
+  "portfolio",
+  "resume",
+  "github",
+  "linkedin",
+  "leetcode",
+  "codeforces",
+  "codechef",
+  "hackerrank",
+  "twitter",
+  "website",
+  "availability",
+  "skills",
+  "projects",
+];
+
+// Fields that require type casting to Number
+const NUMERIC_FIELDS = ["age", "graduationYear"];
 
 // =================================================
 // GET PROFILE
@@ -23,19 +57,116 @@ profileRouter.get("/profile/view", userAuth, (req, res) => {
 // =================================================
 profileRouter.patch("/profile/edit", userAuth, async (req, res) => {
   try {
-    validateEditProfileData(req);
+    // Step 1: Validate no protected fields are being edited
+    const protectedFields = [
+      "password",
+      "emailId",
+      "username",
+      "_id",
+      "isActive",
+      "isPremium",
+      "premiumType",
+      "premiumExpiry",
+      "razorpayOrderId",
+      "razorpayPaymentId",
+      "isOnline",
+      "lastSeen",
+      "resetPasswordToken",
+      "resetPasswordExpires",
+      "profileStrength", // Computed on backend only
+      "createdAt",
+      "updatedAt",
+    ];
 
-    // Dynamic field update mapping directly to data model
-    const fieldsToUpdate = Object.keys(req.body);
-    fieldsToUpdate.forEach((field) => {
-      req.user[field] = req.body[field];
+    const requestedFields = Object.keys(req.body);
+    const attemptedProtectedFields = requestedFields.filter((field) =>
+      protectedFields.includes(field)
+    );
+
+    if (attemptedProtectedFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot edit protected fields: ${attemptedProtectedFields.join(
+          ", "
+        )}`,
+      });
+    }
+
+    // Step 2: Filter to only editable fields and cast types
+    const fieldsToUpdate = {};
+    for (const field of EDITABLE_FIELDS) {
+      if (field in req.body) {
+        let value = req.body[field];
+
+        // Type cast numeric fields
+        if (NUMERIC_FIELDS.includes(field)) {
+          if (value === null || value === "" || value === undefined) {
+            value = undefined; // Allow clearing numeric fields
+          } else {
+            value = Number(value);
+            if (isNaN(value)) {
+              return res.status(400).json({
+                success: false,
+                message: `Invalid value for ${field}: must be a valid number`,
+              });
+            }
+          }
+        }
+
+        fieldsToUpdate[field] = value;
+      }
+    }
+
+    // Step 3: Validate skills and projects arrays
+    if (fieldsToUpdate.skills !== undefined) {
+      if (!Array.isArray(fieldsToUpdate.skills)) {
+        return res.status(400).json({
+          success: false,
+          message: "skills must be an array",
+        });
+      }
+      if (fieldsToUpdate.skills.length > 25) {
+        return res.status(400).json({
+          success: false,
+          message: "Maximum 25 skills allowed",
+        });
+      }
+      fieldsToUpdate.skills = fieldsToUpdate.skills.filter(
+        (skill) => typeof skill === "string" && skill.trim().length > 0
+      );
+    }
+
+    if (fieldsToUpdate.projects !== undefined) {
+      if (!Array.isArray(fieldsToUpdate.projects)) {
+        return res.status(400).json({
+          success: false,
+          message: "projects must be an array",
+        });
+      }
+      // Ensure each project has techStack as array
+      fieldsToUpdate.projects = fieldsToUpdate.projects.map((project) => ({
+        ...project,
+        techStack: Array.isArray(project.techStack)
+          ? project.techStack
+          : [],
+      }));
+    }
+
+    // Step 4: Apply updates to user document
+    Object.keys(fieldsToUpdate).forEach((field) => {
+      req.user[field] = fieldsToUpdate[field];
     });
 
-    // Automatically recalculate profile strength before saving
+    // Step 5: Automatically recalculate profile strength before saving
     let score = 0;
     const user = req.user;
 
-    if (user.photoUrl && user.photoUrl !== "https://tse2.mm.bing.net/th/id/OIP.WLB7NRb9ayKYi7EQ1dAhgAAAAA?pid=Api&P=0&h=180") score += 10;
+    if (
+      user.photoUrl &&
+      user.photoUrl !==
+        "https://tse2.mm.bing.net/th/id/OIP.WLB7NRb9ayKYi7EQ1dAhgAAAAA?pid=Api&P=0&h=180"
+    )
+      score += 10;
     if (user.about && user.about !== "This is a default bio") score += 10;
     if (user.skills && user.skills.length > 0) score += 15;
     if (user.projects && user.projects.length > 0) score += 20;
@@ -47,9 +178,10 @@ profileRouter.patch("/profile/edit", userAuth, async (req, res) => {
 
     user.profileStrength = Math.min(score, 100);
 
+    // Step 6: Save to MongoDB (will trigger Mongoose validation)
     await user.save();
 
-    // Strip password out from payload safely
+    // Step 7: Strip password and return updated user
     const safeUserData = user.toObject();
     delete safeUserData.password;
 
@@ -59,9 +191,11 @@ profileRouter.patch("/profile/edit", userAuth, async (req, res) => {
       data: safeUserData,
     });
   } catch (err) {
+    // Return meaningful error message (Mongoose validation errors, etc)
+    const message = err.message || "Profile update failed";
     res.status(400).json({
       success: false,
-      message: err.message,
+      message: message,
     });
   }
 });
@@ -119,9 +253,6 @@ profileRouter.post("/profile/coach", userAuth, async (req, res) => {
 
 // =================================================
 // POST /profile/coach/chat — conversational follow-up turns
-// Reuses the same profile + previously generated suggestions as context,
-// plus the client-supplied conversation history, so the AI never needs
-// the report regenerated to keep chatting.
 // =================================================
 profileRouter.post("/profile/coach/chat", userAuth, async (req, res) => {
   try {
@@ -136,8 +267,6 @@ profileRouter.post("/profile/coach/chat", userAuth, async (req, res) => {
       return res.status(400).json({ success: false, message: "A message is required." });
     }
 
-    // Cap history defensively regardless of what the client sends, to
-    // bound token usage per request.
     const safeHistory = Array.isArray(history) ? history.slice(-16) : [];
 
     const reply = await generateCoachChatReply(loggedInUser, suggestions, safeHistory, message.trim());

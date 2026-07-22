@@ -18,194 +18,363 @@ try {
   ({ StructuredOutputParser } = require("langchain/output_parsers"));
   ({ z } = require("zod"));
 } catch (loadErr) {
-  console.error("recommendationAI: LangChain/Groq dependencies unavailable, AI explanations disabled.", loadErr.message);
+  console.error(
+    "recommendationAI: LangChain/Groq dependencies unavailable, AI explanations disabled.",
+    loadErr.message
+  );
 }
 
-// Initialize ChatGroq instance safely using environment variables
-const modelName = process.env.MODEL_NAME || "llama-3.3-70b-versatile";
+// ======================================================
+// Groq Model Configuration
+// ======================================================
+
+const modelName =
+  process.env.MODEL_NAME || "llama-3.3-70b-versatile";
+
 const apiKey = process.env.GROQ_API_KEY;
 
 let model = null;
+
 if (apiKey && ChatGroq) {
   try {
     model = new ChatGroq({
-      apiKey: apiKey,
-      modelName: modelName,
+      apiKey,
+      // IMPORTANT:
+// Current @langchain/groq expects the model through `model`.
+// Using only `modelName` can result in Groq receiving a request
+// without the required `model` property.
+      model: modelName,
       temperature: 0.3,
       maxTokens: 300,
     });
+
+    console.log(
+      `recommendationAI: Groq initialized with model ${modelName}`
+    );
   } catch (initErr) {
-    console.error("recommendationAI: Failed to initialize ChatGroq model, AI explanations disabled.", initErr.message);
+    console.error(
+      "recommendationAI: Failed to initialize ChatGroq model, AI explanations disabled.",
+      initErr.message
+    );
+
     model = null;
+  }
+} else {
+  if (!apiKey) {
+    console.warn(
+      "recommendationAI: GROQ_API_KEY is missing. AI explanations disabled."
+    );
+  }
+
+  if (!ChatGroq) {
+    console.warn(
+      "recommendationAI: ChatGroq dependency unavailable. AI explanations disabled."
+    );
   }
 }
 
-// Structured output schema: title, summary, strengths[], collaborationIdeas[]
+// ======================================================
+// Structured Output Schema
+// ======================================================
+
 let outputParser = null;
+
 if (StructuredOutputParser && z) {
   try {
     outputParser = StructuredOutputParser.fromZodSchema(
       z.object({
-        title: z.string().describe("A short, punchy title for the match, e.g. 'Excellent Full Stack Match'"),
-        summary: z.string().describe("A one to two sentence summary of why these two developers are a strong match"),
+        title: z
+          .string()
+          .describe(
+            "A short, punchy title for the match, e.g. 'Excellent Full Stack Match'"
+          ),
+
+        summary: z
+          .string()
+          .describe(
+            "A one to two sentence summary of why these two developers are a strong match"
+          ),
+
         strengths: z
           .array(z.string())
-          .describe("An array of 2-4 short bullet points describing the strongest overlaps between both developers"),
+          .describe(
+            "An array of 2-4 short bullet points describing the strongest overlaps between both developers"
+          ),
+
         collaborationIdeas: z
           .array(z.string())
-          .describe("An array of 1-3 short, concrete ideas for how the two developers could collaborate"),
+          .describe(
+            "An array of 1-3 short, concrete ideas for how the two developers could collaborate"
+          ),
       })
     );
   } catch (parserErr) {
-    console.error("recommendationAI: Failed to build StructuredOutputParser, AI explanations disabled.", parserErr.message);
+    console.error(
+      "recommendationAI: Failed to build StructuredOutputParser, AI explanations disabled.",
+      parserErr.message
+    );
+
     outputParser = null;
   }
 }
 
+// ======================================================
+// Prompt Template
+// ======================================================
+
 let promptTemplate = null;
+
 if (ChatPromptTemplate && outputParser) {
   try {
     promptTemplate = ChatPromptTemplate.fromMessages([
       [
         "system",
         "You are an expert networking algorithm for 'Git-Together', a professional platform for developers. " +
-        "Your task is to generate a concise, professional, and engaging match explanation between two developers, " +
-        "focusing on their shared skills, professional alignment, and collaboration potential.\n\n" +
-        "CRITICAL: Respond with ONLY valid JSON matching the schema below. " +
-        "Do not include any intros, outros, markdown formatting (no ```), or any text outside the JSON object.\n\n" +
-        "{format_instructions}"
+          "Your task is to generate a concise, professional, and engaging match explanation between two developers, " +
+          "focusing on their shared skills, professional alignment, and collaboration potential.\n\n" +
+          "CRITICAL: Respond with ONLY valid JSON matching the schema below. " +
+          "Do not include any intros, outros, markdown formatting (no ```), or any text outside the JSON object.\n\n" +
+          "{format_instructions}",
       ],
+
       [
         "human",
         "Generate a match explanation based on this data:\n\n" +
-        "Logged-in Developer Profile:\n" +
-        "- Skills: {userSkills}\n" +
-        "- Company: {userCompany}\n" +
-        "- College: {userCollege}\n" +
-        "- Location: {userLocation}\n" +
-        "- Experience Level: {userExperience}\n" +
-        "- Availability: {userAvailability}\n\n" +
-        "Recommended Developer Profile:\n" +
-        "- Name: {candidateName}\n" +
-        "- Skills: {candidateSkills}\n" +
-        "- Company: {candidateCompany}\n" +
-        "- College: {candidateCollege}\n" +
-        "- Location: {candidateLocation}\n" +
-        "- Experience Level: {candidateExperience}\n" +
-        "- Availability: {candidateAvailability}\n\n" +
-        "Match Overview:\n" +
-        "- Calculated Recommendation Score: {score}\n" +
-        "- Matched Skills Count: {commonSkills}\n" +
-        "- Reasons For Recommendation: {reasons}"
-      ]
+
+          "Logged-in Developer Profile:\n" +
+          "- Skills: {userSkills}\n" +
+          "- Company: {userCompany}\n" +
+          "- College: {userCollege}\n" +
+          "- Location: {userLocation}\n" +
+          "- Experience Level: {userExperience}\n" +
+          "- Availability: {userAvailability}\n\n" +
+
+          "Recommended Developer Profile:\n" +
+          "- Name: {candidateName}\n" +
+          "- Skills: {candidateSkills}\n" +
+          "- Company: {candidateCompany}\n" +
+          "- College: {candidateCollege}\n" +
+          "- Location: {candidateLocation}\n" +
+          "- Experience Level: {candidateExperience}\n" +
+          "- Availability: {candidateAvailability}\n\n" +
+
+          "Match Overview:\n" +
+          "- Calculated Recommendation Score: {score}\n" +
+          "- Matched Skills Count: {commonSkills}\n" +
+          "- Reasons For Recommendation: {reasons}",
+      ],
     ]);
   } catch (promptErr) {
-    console.error("recommendationAI: Failed to build ChatPromptTemplate, AI explanations disabled.", promptErr.message);
+    console.error(
+      "recommendationAI: Failed to build ChatPromptTemplate, AI explanations disabled.",
+      promptErr.message
+    );
+
     promptTemplate = null;
   }
 }
 
-// RunnableSequence: PromptTemplate -> ChatGroq -> StructuredOutputParser
+// ======================================================
+// LangChain Pipeline
+// Prompt -> Groq -> Structured Output Parser
+// ======================================================
+
 let chain = null;
-if (RunnableSequence && promptTemplate && model && outputParser) {
+
+if (
+  RunnableSequence &&
+  promptTemplate &&
+  model &&
+  outputParser
+) {
   try {
-    chain = RunnableSequence.from([promptTemplate, model, outputParser]);
+    chain = RunnableSequence.from([
+      promptTemplate,
+      model,
+      outputParser,
+    ]);
   } catch (chainErr) {
-    console.error("recommendationAI: Failed to build RunnableSequence, AI explanations disabled.", chainErr.message);
+    console.error(
+      "recommendationAI: Failed to build RunnableSequence, AI explanations disabled.",
+      chainErr.message
+    );
+
     chain = null;
   }
 }
 
 /**
- * Builds a safe default structured response, used only when the LLM
- * responded but its output could not be parsed into the expected schema.
- * @param {Object} analysis - The calculated match details containing score, commonSkills, and reasons.
- * @returns {Object} A default structured explanation object.
+ * Builds a safe default structured response.
+ *
+ * Used when an AI response cannot be represented using the
+ * expected structured format.
  */
 function buildDefaultStructuredResponse(analysis) {
-  const reasons = Array.isArray(analysis.reasons) && analysis.reasons.length > 0
-    ? analysis.reasons
-    : ["Shared interest in technical collaboration"];
+  const reasons =
+    Array.isArray(analysis?.reasons) &&
+    analysis.reasons.length > 0
+      ? analysis.reasons
+      : ["Shared interest in technical collaboration"];
 
   return {
     title: "Good Networking Match",
+
     summary: reasons.join(", ") + ".",
+
     strengths: reasons,
-    collaborationIdeas: ["Reach out to discuss shared interests and potential collaboration."],
+
+    collaborationIdeas: [
+      "Reach out to discuss shared interests and potential collaboration.",
+    ],
   };
 }
-
 /**
  * Generates an AI-driven professional networking match explanation using
  * LangChain's PromptTemplate, ChatGroq, and StructuredOutputParser.
  *
- * Error handling contract:
- * - If the AI layer (model/prompt/parser/chain) is not configured or the
- *   call to Groq itself fails (network/API error), this returns null so
- *   the recommendation endpoint can still return the candidate with
- *   aiReason: null. It never throws.
- * - If Groq responds but the response cannot be parsed into the expected
- *   JSON schema, a safe default structured JSON object is returned instead
- *   of null, per the "never crash, always return valid JSON shape" rule.
+ * Error handling:
+ * - If the AI layer is unavailable, returns null.
+ * - If Groq/API invocation fails, returns null.
+ * - If the parsed response has an unexpected structure, returns a safe
+ *   fallback response.
  *
- * @param {Object} currentUser - The logged-in user details.
- * @param {Object} candidate - The candidate developer details.
- * @param {Object} analysis - The calculated match details containing score, commonSkills, and reasons.
- * @returns {Promise<Object|null>} A structured explanation object, or null if the AI layer is unavailable/failed.
+ * @param {Object} currentUser - Logged-in developer.
+ * @param {Object} candidate - Recommended developer.
+ * @param {Object} analysis - Calculated recommendation details.
+ * @returns {Promise<Object|null>}
  */
-async function generateAIExplanation(currentUser, candidate, analysis) {
+async function generateAIExplanation(
+  currentUser,
+  candidate,
+  analysis
+) {
+  // AI layer unavailable/configuration failed
   if (!chain) {
     return null;
   }
 
-  const candidateName = `${candidate.firstName || ""} ${candidate.lastName || ""}`.trim() || candidate.username || "This developer";
+  // Defensive defaults
+  currentUser = currentUser || {};
+  candidate = candidate || {};
+  analysis = analysis || {};
+
+  const candidateName =
+    `${candidate.firstName || ""} ${
+      candidate.lastName || ""
+    }`.trim() ||
+    candidate.username ||
+    "This developer";
+
+  // ======================================================
+  // Prepare Prompt Variables
+  // ======================================================
 
   const invokeArgs = {
-    format_instructions: outputParser.getFormatInstructions(),
-    userSkills: Array.isArray(currentUser.skills) ? currentUser.skills.join(", ") : "Not specified",
-    userCompany: currentUser.company || "Not specified",
-    userCollege: currentUser.college || "Not specified",
-    userLocation: currentUser.location || "Not specified",
-    userExperience: currentUser.experienceLevel || "Not specified",
-    userAvailability: currentUser.availability || "Not specified",
-    candidateName: candidateName,
-    candidateSkills: Array.isArray(candidate.skills) ? candidate.skills.join(", ") : "Not specified",
-    candidateCompany: candidate.company || "Not specified",
-    candidateCollege: candidate.college || "Not specified",
-    candidateLocation: candidate.location || "Not specified",
-    candidateExperience: candidate.experienceLevel || "Not specified",
-    candidateAvailability: candidate.availability || "Not specified",
-    score: analysis.score,
-    commonSkills: analysis.commonSkills,
-    reasons: Array.isArray(analysis.reasons) ? analysis.reasons.join(", ") : "",
+    format_instructions:
+      outputParser.getFormatInstructions(),
+
+    // Logged-in developer
+    userSkills:
+      Array.isArray(currentUser.skills) &&
+      currentUser.skills.length > 0
+        ? currentUser.skills.join(", ")
+        : "Not specified",
+
+    userCompany:
+      currentUser.company || "Not specified",
+
+    userCollege:
+      currentUser.college || "Not specified",
+
+    userLocation:
+      currentUser.location || "Not specified",
+
+    userExperience:
+      currentUser.experienceLevel || "Not specified",
+
+    userAvailability:
+      currentUser.availability || "Not specified",
+
+    // Candidate developer
+    candidateName,
+
+    candidateSkills:
+      Array.isArray(candidate.skills) &&
+      candidate.skills.length > 0
+        ? candidate.skills.join(", ")
+        : "Not specified",
+
+    candidateCompany:
+      candidate.company || "Not specified",
+
+    candidateCollege:
+      candidate.college || "Not specified",
+
+    candidateLocation:
+      candidate.location || "Not specified",
+
+    candidateExperience:
+      candidate.experienceLevel || "Not specified",
+
+    candidateAvailability:
+      candidate.availability || "Not specified",
+
+    // Recommendation analysis
+    score:
+      analysis.score ?? 0,
+
+    commonSkills:
+      analysis.commonSkills ?? 0,
+
+    reasons:
+      Array.isArray(analysis.reasons) &&
+      analysis.reasons.length > 0
+        ? analysis.reasons.join(", ")
+        : "General professional compatibility",
   };
 
+  // ======================================================
+  // Execute LangChain Pipeline
+  // Prompt -> ChatGroq -> StructuredOutputParser
+  // ======================================================
+
   let rawResult;
+
   try {
-    // This single invoke() call runs the full RunnableSequence:
-    // PromptTemplate -> ChatGroq -> StructuredOutputParser.
-    // If Groq itself fails (network/API/auth error), it throws here.
     rawResult = await chain.invoke(invokeArgs);
   } catch (groqOrChainError) {
-    // Groq call failed, or the parser threw because the model's output
-    // wasn't valid/parsable JSON at all. Distinguish "no output" (Groq/
-    // network failure) from "bad output" (parsing failure) where possible;
-    // when in doubt, fail safe with null so the endpoint never breaks.
-    console.error("recommendationAI: AI explanation generation failed.", groqOrChainError.message);
+    console.error(
+      "recommendationAI: AI explanation generation failed.",
+      groqOrChainError?.message || groqOrChainError
+    );
+
+    // Recommendation endpoint should continue working even
+    // if Groq is temporarily unavailable.
     return null;
   }
 
-  // Defensive shape check in case the parser returned something unexpected
-  // despite not throwing (e.g. a partially-formed object).
+  // ======================================================
+  // Validate Structured Response
+  // ======================================================
+
   if (
     !rawResult ||
+    typeof rawResult !== "object" ||
     typeof rawResult.title !== "string" ||
     typeof rawResult.summary !== "string" ||
     !Array.isArray(rawResult.strengths) ||
     !Array.isArray(rawResult.collaborationIdeas)
   ) {
+    console.warn(
+      "recommendationAI: Unexpected structured response. Using fallback."
+    );
+
     return buildDefaultStructuredResponse(analysis);
   }
+
+  // ======================================================
+  // Return Clean Structured Result
+  // ======================================================
 
   return {
     title: rawResult.title,
@@ -214,6 +383,10 @@ async function generateAIExplanation(currentUser, candidate, analysis) {
     collaborationIdeas: rawResult.collaborationIdeas,
   };
 }
+
+// ======================================================
+// Exports
+// ======================================================
 
 module.exports = {
   generateAIExplanation,

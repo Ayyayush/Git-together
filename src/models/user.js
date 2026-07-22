@@ -132,7 +132,7 @@ const userSchema = new mongoose.Schema(
 
     gender: {
       type: String,
-      enum: ["Male", "Female", "Other"],
+      enum: ["Male", "Female", "Other", ""],
     },
 
     photoUrl: {
@@ -200,7 +200,7 @@ const userSchema = new mongoose.Schema(
 
     lastSeen: {
       type: Date,
-      default: Date.now,
+      default: null,
     },
 
     /*

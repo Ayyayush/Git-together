@@ -7,7 +7,7 @@ authRouter.post("/signup", async (req, res) => {
   try {
     const { firstName, lastName, emailId, password, username, age, gender } = req.body;
 
-    // 1. Fixed validation order: Check password before hashing to avoid crashing on undefined
+    // Basic validation
     if (!password) {
       return res.status(400).json({
         error: "Bad Request",
@@ -22,13 +22,37 @@ authRouter.post("/signup", async (req, res) => {
       });
     }
 
-    const sanitizedUsername = username.trim().toLowerCase();
-
-    const existingUser = await User.findOne({ username: sanitizedUsername });
-    if (existingUser) {
+    if (!emailId) {
       return res.status(400).json({
         error: "Bad Request",
+        message: "Email is required",
+      });
+    }
+
+    const sanitizedUsername = username.trim().toLowerCase();
+    const sanitizedEmail = emailId.trim().toLowerCase();
+
+    // Check username before creating user
+    const existingUsername = await User.findOne({
+      username: sanitizedUsername,
+    });
+
+    if (existingUsername) {
+      return res.status(409).json({
+        error: "Conflict",
         message: "Username is already taken",
+      });
+    }
+
+    // Check email before creating user
+    const existingEmail = await User.findOne({
+      emailId: sanitizedEmail,
+    });
+
+    if (existingEmail) {
+      return res.status(409).json({
+        error: "Conflict",
+        message: "An account with this email already exists. Please log in instead.",
       });
     }
 
@@ -38,7 +62,7 @@ authRouter.post("/signup", async (req, res) => {
     const user = new User({
       firstName,
       lastName,
-      emailId,
+      emailId: sanitizedEmail,
       password: passwordHash,
       username: sanitizedUsername,
       age,
@@ -46,11 +70,36 @@ authRouter.post("/signup", async (req, res) => {
     });
 
     await user.save();
+
     return res.status(201).json({
+      success: true,
       message: "User registered successfully",
       data: user,
     });
   } catch (err) {
+    // Safety net for duplicate-key race conditions.
+    // MongoDB unique indexes remain the final source of truth.
+    if (err.code === 11000) {
+      if (err.keyPattern?.emailId || err.keyValue?.emailId) {
+        return res.status(409).json({
+          error: "Conflict",
+          message: "An account with this email already exists. Please log in instead.",
+        });
+      }
+
+      if (err.keyPattern?.username || err.keyValue?.username) {
+        return res.status(409).json({
+          error: "Conflict",
+          message: "Username is already taken",
+        });
+      }
+
+      return res.status(409).json({
+        error: "Conflict",
+        message: "An account with these details already exists.",
+      });
+    }
+
     return res.status(400).json({
       error: "Registration Failed",
       message: err.message,
@@ -61,8 +110,7 @@ authRouter.post("/signup", async (req, res) => {
 authRouter.post("/login", async (req, res) => {
   try {
     const { emailId, password } = req.body;
-    
-    // 2. Fixed input validation: Guard against missing credentials
+
     if (!emailId || !password) {
       return res.status(400).json({
         error: "Login Failed",
@@ -70,25 +118,29 @@ authRouter.post("/login", async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ emailId: emailId });
+    const sanitizedEmail = emailId.trim().toLowerCase();
+
+    const user = await User.findOne({
+      emailId: sanitizedEmail,
+    });
+
     if (!user) {
       throw new Error("Invalid credentials");
     }
 
-    // 3. Schema Methods: Ensure user.validatePassword and user.getJWT are defined in your Mongoose schema
     const isPasswordValid = await user.validatePassword(password);
+
     if (!isPasswordValid) {
       throw new Error("Invalid credentials");
     }
 
     const token = await user.getJWT();
-    
-    // 4. Fixed indentation for cookie setup
+
     res.cookie("token", token, {
-      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Cleaned up the math readability
+      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Note: Lowercase values are standard for sameSite
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     });
 
     return res.status(200).json({
@@ -130,7 +182,10 @@ authRouter.get("/auth/check-username", async (req, res) => {
 
     const sanitizedUsername = username.trim().toLowerCase();
 
-    const existingUser = await User.findOne({ username: sanitizedUsername });
+    const existingUser = await User.findOne({
+      username: sanitizedUsername,
+    });
+
     if (existingUser) {
       return res.status(200).json({
         available: false,

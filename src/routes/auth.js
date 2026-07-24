@@ -1,13 +1,57 @@
+// src/routes/auth.js
+
 const express = require("express");
 const authRouter = express.Router();
 const User = require("../models/user");
 const bcrypt = require("bcrypt");
 
+/*
+ * ============================
+ * SIGNUP
+ * ============================
+ */
 authRouter.post("/signup", async (req, res) => {
   try {
-    const { firstName, lastName, emailId, password, username, age, gender } = req.body;
+    const {
+      firstName,
+      lastName,
+      emailId,
+      password,
+      username,
+      age,
+      gender,
+    } = req.body;
 
-    // Basic validation
+    /* ================= BASIC VALIDATION ================= */
+
+    if (!firstName || !firstName.trim()) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "First name is required",
+      });
+    }
+
+    if (firstName.trim().length < 2) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "First name must be at least 2 characters long",
+      });
+    }
+
+    if (!username || !username.trim()) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Username is required",
+      });
+    }
+
+    if (!emailId || !emailId.trim()) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Email is required",
+      });
+    }
+
     if (!password) {
       return res.status(400).json({
         error: "Bad Request",
@@ -15,24 +59,54 @@ authRouter.post("/signup", async (req, res) => {
       });
     }
 
-    if (!username) {
-      return res.status(400).json({
-        error: "Bad Request",
-        message: "Username is required",
-      });
-    }
-
-    if (!emailId) {
-      return res.status(400).json({
-        error: "Bad Request",
-        message: "Email is required",
-      });
-    }
+    /* ================= SANITIZE ================= */
 
     const sanitizedUsername = username.trim().toLowerCase();
     const sanitizedEmail = emailId.trim().toLowerCase();
 
-    // Check username before creating user
+    /* ================= USERNAME VALIDATION ================= */
+
+    const usernameRegex = /^[a-z0-9_]+$/;
+
+    if (
+      sanitizedUsername.length < 3 ||
+      sanitizedUsername.length > 30 ||
+      !usernameRegex.test(sanitizedUsername)
+    ) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message:
+          "Username must be 3-30 characters and contain only lowercase letters, numbers, and underscores.",
+      });
+    }
+
+    /* ================= EMAIL VALIDATION ================= */
+
+    // Intentionally restricted to common signup email characters.
+    // Rejects values such as:
+    // himanshuvarshney600#@gmail.com
+    const emailRegex =
+      /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+
+    if (!emailRegex.test(sanitizedEmail)) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Please enter a valid email address",
+      });
+    }
+
+    /* ================= PASSWORD VALIDATION ================= */
+
+    // Validate the RAW password here, before bcrypt hashing.
+    if (password.length < 8) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Password must be at least 8 characters long",
+      });
+    }
+
+    /* ================= DUPLICATE USERNAME ================= */
+
     const existingUsername = await User.findOne({
       username: sanitizedUsername,
     });
@@ -44,7 +118,8 @@ authRouter.post("/signup", async (req, res) => {
       });
     }
 
-    // Check email before creating user
+    /* ================= DUPLICATE EMAIL ================= */
+
     const existingEmail = await User.findOne({
       emailId: sanitizedEmail,
     });
@@ -52,16 +127,21 @@ authRouter.post("/signup", async (req, res) => {
     if (existingEmail) {
       return res.status(409).json({
         error: "Conflict",
-        message: "An account with this email already exists. Please log in instead.",
+        message:
+          "An account with this email already exists. Please log in instead.",
       });
     }
+
+    /* ================= PASSWORD HASH ================= */
 
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
+    /* ================= CREATE USER ================= */
+
     const user = new User({
-      firstName,
-      lastName,
+      firstName: firstName.trim(),
+      lastName: lastName?.trim() || "",
       emailId: sanitizedEmail,
       password: passwordHash,
       username: sanitizedUsername,
@@ -71,19 +151,25 @@ authRouter.post("/signup", async (req, res) => {
 
     await user.save();
 
+    /* ================= RESPONSE ================= */
+
     return res.status(201).json({
       success: true,
       message: "User registered successfully",
       data: user,
     });
   } catch (err) {
-    // Safety net for duplicate-key race conditions.
-    // MongoDB unique indexes remain the final source of truth.
+    /*
+     * MongoDB duplicate-key safety net.
+     * Handles race conditions where two signup requests
+     * reach MongoDB at nearly the same time.
+     */
     if (err.code === 11000) {
       if (err.keyPattern?.emailId || err.keyValue?.emailId) {
         return res.status(409).json({
           error: "Conflict",
-          message: "An account with this email already exists. Please log in instead.",
+          message:
+            "An account with this email already exists. Please log in instead.",
         });
       }
 
@@ -107,6 +193,11 @@ authRouter.post("/signup", async (req, res) => {
   }
 });
 
+/*
+ * ============================
+ * LOGIN
+ * ============================
+ */
 authRouter.post("/login", async (req, res) => {
   try {
     const { emailId, password } = req.body;
@@ -125,13 +216,19 @@ authRouter.post("/login", async (req, res) => {
     });
 
     if (!user) {
-      throw new Error("Invalid credentials");
+      return res.status(400).json({
+        error: "Login Failed",
+        message: "Invalid credentials",
+      });
     }
 
     const isPasswordValid = await user.validatePassword(password);
 
     if (!isPasswordValid) {
-      throw new Error("Invalid credentials");
+      return res.status(400).json({
+        error: "Login Failed",
+        message: "Invalid credentials",
+      });
     }
 
     const token = await user.getJWT();
@@ -156,6 +253,11 @@ authRouter.post("/login", async (req, res) => {
   }
 });
 
+/*
+ * ============================
+ * LOGOUT
+ * ============================
+ */
 authRouter.post("/logout", (req, res) => {
   res.clearCookie("token", {
     httpOnly: true,
@@ -169,11 +271,16 @@ authRouter.post("/logout", (req, res) => {
   });
 });
 
+/*
+ * ============================
+ * CHECK USERNAME
+ * ============================
+ */
 authRouter.get("/auth/check-username", async (req, res) => {
   try {
     const { username } = req.query;
 
-    if (!username || username.length < 3) {
+    if (!username || username.trim().length < 3) {
       return res.status(400).json({
         error: "Bad Request",
         message: "Username must be at least 3 characters",
@@ -181,6 +288,19 @@ authRouter.get("/auth/check-username", async (req, res) => {
     }
 
     const sanitizedUsername = username.trim().toLowerCase();
+
+    const usernameRegex = /^[a-z0-9_]+$/;
+
+    if (
+      sanitizedUsername.length > 30 ||
+      !usernameRegex.test(sanitizedUsername)
+    ) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message:
+          "Username can contain only lowercase letters, numbers, and underscores",
+      });
+    }
 
     const existingUser = await User.findOne({
       username: sanitizedUsername,

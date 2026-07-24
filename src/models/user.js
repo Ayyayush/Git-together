@@ -1,4 +1,5 @@
 // src/models/user.js
+
 const mongoose = require("mongoose");
 const validator = require("validator");
 const jwt = require("jsonwebtoken");
@@ -16,12 +17,14 @@ const projectSchema = new mongoose.Schema({
     trim: true,
     maxlength: 100,
   },
+
   description: {
     type: String,
     required: true,
     trim: true,
     maxlength: 500,
   },
+
   github: {
     type: String,
     trim: true,
@@ -31,6 +34,7 @@ const projectSchema = new mongoose.Schema({
       }
     },
   },
+
   live: {
     type: String,
     trim: true,
@@ -40,10 +44,12 @@ const projectSchema = new mongoose.Schema({
       }
     },
   },
+
   techStack: {
     type: [String],
     default: [],
   },
+
   image: {
     type: String,
     default: "",
@@ -92,6 +98,13 @@ const userSchema = new mongoose.Schema(
       },
     },
 
+    /*
+     * ============================
+     * Email
+     * ============================
+     * Uses the same email rule as the signup API.
+     * Characters such as # are intentionally rejected.
+     */
     emailId: {
       type: String,
       required: true,
@@ -99,14 +112,22 @@ const userSchema = new mongoose.Schema(
       unique: true,
       trim: true,
       validate(value) {
-        if (!validator.isEmail(value)) {
+        const emailRegex =
+          /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+
+        if (!emailRegex.test(value)) {
           throw new Error("Invalid email address");
         }
       },
     },
 
     /*
-     * 🔐 Hashed Password
+     * ============================
+     * Hashed Password
+     * ============================
+     * This validates the bcrypt HASH stored in MongoDB.
+     * Raw password >= 8 validation is handled before hashing
+     * inside the signup/reset-password routes.
      */
     password: {
       type: String,
@@ -114,6 +135,11 @@ const userSchema = new mongoose.Schema(
       minlength: 60,
     },
 
+    /*
+     * ============================
+     * Password Reset
+     * ============================
+     */
     resetPasswordToken: {
       type: String,
       default: null,
@@ -205,7 +231,7 @@ const userSchema = new mongoose.Schema(
 
     /*
      * ============================
-     * Extended Developer Fields (Task 1)
+     * Extended Developer Fields
      * ============================
      */
     developerTitle: {
@@ -294,8 +320,7 @@ const userSchema = new mongoose.Schema(
         }
       },
     },
-
-    leetcode: {
+        leetcode: {
       type: String,
       trim: true,
       validate(value) {
@@ -382,7 +407,7 @@ const userSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  },
+  }
 );
 
 /*
@@ -402,8 +427,8 @@ userSchema.methods.validatePassword = async function (passwordInputByUser) {
 userSchema.methods.getJWT = async function () {
   return jwt.sign(
     { _id: this._id },
-    process.env.JWT_SECRET || "DEVtinder$790", // Use env variable, fallback for local dev
-    { expiresIn: "7d" },
+    process.env.JWT_SECRET || "DEVtinder$790",
+    { expiresIn: "7d" }
   );
 };
 
@@ -411,12 +436,12 @@ userSchema.methods.getJWT = async function () {
  * ============================
  * Search Indexes
  * ============================
- * NOTE: `username` already has `unique: true` above, which creates
- * its own index. The explicit userSchema.index({ username: 1 }) call
- * was creating a duplicate index and has been removed.
+ * username and emailId already receive unique indexes
+ * through unique: true in their schema definitions.
  */
 userSchema.index({ firstName: 1 });
 userSchema.index({ lastName: 1 });
 userSchema.index({ skills: 1 });
 
-module.exports = mongoose.models.User || mongoose.model("User", userSchema);
+module.exports =
+  mongoose.models.User || mongoose.model("User", userSchema);

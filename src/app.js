@@ -34,17 +34,30 @@ const server = http.createServer(app);
 // ==========================
 initializeSocket(server);
 
+
 // ==========================
 // CORS Configuration
 // ==========================
-const allowedOrigins = process.env.CLIENT_URL
-  ? process.env.CLIENT_URL.split(",").map((origin) => origin.trim())
-  : ["http://localhost:5173"];
+// Always allow local development + Docker frontend
+const allowedOrigins = [
+  "http://localhost:5173", // Vite development
+  "http://localhost:5175", // Docker frontend
+];
+
+// Add production frontend URL(s) from .env
+if (process.env.CLIENT_URL) {
+  const envOrigins = process.env.CLIENT_URL
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  allowedOrigins.push(...envOrigins);
+}
 
 app.use(
   cors({
     origin(origin, callback) {
-      // Allow non-browser requests (Postman, curl, server-to-server)
+      // Allow Postman, curl and server-to-server requests
       if (!origin) {
         return callback(null, true);
       }
@@ -53,11 +66,13 @@ app.use(
         return callback(null, true);
       }
 
+      console.error(`CORS blocked origin: ${origin}`);
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   })
 );
+
 
 // ==========================
 // Middlewares

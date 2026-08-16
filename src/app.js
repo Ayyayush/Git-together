@@ -1,11 +1,9 @@
-// ==========================
 // Environment Variables
-// ==========================
 require("dotenv").config();
 
-// ==========================
-// Imports
-// ==========================
+
+
+
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
@@ -23,28 +21,26 @@ const chatRouter = require("./routes/chat");
 const paymentRouter = require("./routes/payment");
 const notificationRouter = require("./routes/notification");
 
-// ==========================
+
 // App Initialization
-// ==========================
 const app = express();
 const server = http.createServer(app);
 
-// ==========================
+
 // Socket.io
-// ==========================
 initializeSocket(server);
 
 
-// ==========================
+
 // CORS Configuration
-// ==========================
-// Always allow local development + Docker frontend
+
+
 const allowedOrigins = [
-  "http://localhost:5173", // Vite development
+  "http://localhost:5173", 
   "http://localhost:5175", // Docker frontend
 ];
 
-// Add production frontend URL(s) from .env
+// Adding production frontend URL(s) from .env
 if (process.env.CLIENT_URL) {
   const envOrigins = process.env.CLIENT_URL
     .split(",")
@@ -74,15 +70,14 @@ app.use(
 );
 
 
-// ==========================
+
 // Middlewares
-// ==========================
 app.use(express.json());
 app.use(cookieParser());
 
-// ==========================
-// Health Check
-// ==========================
+
+
+
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
@@ -90,9 +85,8 @@ app.get("/", (req, res) => {
   });
 });
 
-// ==========================
+
 // Routes
-// ==========================
 app.use("/", authRouter);
 app.use("/", profileRouter);
 app.use("/", requestRouter);
@@ -101,9 +95,8 @@ app.use("/", chatRouter);
 app.use("/", paymentRouter);
 app.use("/notifications", notificationRouter);
 
-// ==========================
+
 // 404 Handler
-// ==========================
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -111,9 +104,8 @@ app.use((req, res) => {
   });
 });
 
-// ==========================
+
 // Start Server
-// ==========================
 const PORT = process.env.PORT || 7777;
 
 connectDB()

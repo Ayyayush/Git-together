@@ -1,4 +1,3 @@
-// routes/profile.js
 
 const express = require("express");
 const profileRouter = express.Router();
@@ -6,10 +5,8 @@ const profileRouter = express.Router();
 const User = require("../models/user");
 const { userAuth } = require("../middlewares/auth");
 
-// =================================================
+
 // WHITELIST OF EDITABLE FIELDS
-// =================================================
-// Only these fields can be updated via /profile/edit
 const EDITABLE_FIELDS = [
   "firstName",
   "lastName",
@@ -39,12 +36,10 @@ const EDITABLE_FIELDS = [
   "projects",
 ];
 
-// Fields that require type casting to Number
+
 const NUMERIC_FIELDS = ["age", "graduationYear"];
 
-// =================================================
-// GET PROFILE
-// =================================================
+
 profileRouter.get("/profile/view", userAuth, (req, res) => {
   res.status(200).json({
     success: true,
@@ -52,9 +47,7 @@ profileRouter.get("/profile/view", userAuth, (req, res) => {
   });
 });
 
-// =================================================
-// UPDATE PROFILE
-// =================================================
+
 profileRouter.patch("/profile/edit", userAuth, async (req, res) => {
   try {
     // Step 1: Validate no protected fields are being edited
@@ -200,9 +193,6 @@ profileRouter.patch("/profile/edit", userAuth, async (req, res) => {
   }
 });
 
-// =================================================
-// ADMIN FEED
-// =================================================
 profileRouter.get("/admin/feed", userAuth, async (req, res) => {
   try {
     const users = await User.find().select("-password");
@@ -219,9 +209,7 @@ profileRouter.get("/admin/feed", userAuth, async (req, res) => {
   }
 });
 
-// =================================================
-// POST /profile/coach — one-shot structured suggestions report
-// =================================================
+
 profileRouter.post("/profile/coach", userAuth, async (req, res) => {
   try {
     const loggedInUser = req.user;
@@ -251,9 +239,7 @@ profileRouter.post("/profile/coach", userAuth, async (req, res) => {
   }
 });
 
-// =================================================
-// POST /profile/coach/chat — conversational follow-up turns
-// =================================================
+
 profileRouter.post("/profile/coach/chat", userAuth, async (req, res) => {
   try {
     const loggedInUser = req.user;

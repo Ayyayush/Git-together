@@ -1,4 +1,3 @@
-// utils/recommendationEngine.js
 
 /**
  * Calculates recommendation score for a single candidate developer compared to a logged-in user.
@@ -11,7 +10,7 @@ function calculateRecommendationScore(currentUser, candidate) {
   const reasons = [];
   let commonSkillsCount = 0;
 
-  // 1. Same Skill Scoring (+10 per skill, Max 40)
+  // . Same Skill Scoring (+10 per skill, Max 40)
   if (currentUser.skills && candidate.skills && Array.isArray(currentUser.skills) && Array.isArray(candidate.skills)) {
     const currentSkillsLower = currentUser.skills.map(s => s.toLowerCase().trim());
     const candidateSkillsLower = candidate.skills.map(s => s.toLowerCase().trim());
@@ -29,25 +28,25 @@ function calculateRecommendationScore(currentUser, candidate) {
     }
   }
 
-  // 2. Same College Scoring (+20)
+  //  Same College Scoring (+20)
   if (currentUser.college && candidate.college && currentUser.college.trim().toLowerCase() === candidate.college.trim().toLowerCase()) {
     score += 20;
     reasons.push("Studied at the same college");
   }
 
-  // 3. Same Company Scoring (+20)
+  // Same Company Scoring (+20)
   if (currentUser.company && candidate.company && currentUser.company.trim().toLowerCase() === candidate.company.trim().toLowerCase()) {
     score += 20;
     reasons.push("Works at the same company");
   }
 
-  // 4. Same Experience Level Scoring (+15)
+  //  Same Experience Level Scoring (+15)
   if (currentUser.experienceLevel && candidate.experienceLevel && currentUser.experienceLevel === candidate.experienceLevel) {
     score += 15;
     reasons.push("Same experience level");
   }
 
-  // 5. Same Availability Scoring (+15)
+  //  Same Availability Scoring (+15)
   if (currentUser.availability && candidate.availability && currentUser.availability === candidate.availability) {
     score += 15;
     if (currentUser.availability === "Hackathons") {
@@ -57,13 +56,13 @@ function calculateRecommendationScore(currentUser, candidate) {
     }
   }
 
-  // 6. Same Location Scoring (+10)
+  //  Same Location Scoring (+10)
   if (currentUser.location && candidate.location && currentUser.location.trim().toLowerCase() === candidate.location.trim().toLowerCase()) {
     score += 10;
     reasons.push("Located in the same city");
   }
 
-  // 7. Premium User Scoring (+5)
+  //  Premium User Scoring (+5)
   if (candidate.isPremium) {
     score += 5;
   }
@@ -75,9 +74,7 @@ function calculateRecommendationScore(currentUser, candidate) {
   };
 }
 
-/**
- * Backward compatibility or specific mapping function if needed.
- */
+
 function getRecommendationReasons(currentUser, candidate) {
   const result = calculateRecommendationScore(currentUser, candidate);
   return result.reasons;
@@ -117,7 +114,7 @@ function recommendDevelopers(currentUser, candidates) {
     };
   });
 
-  // Sorting logic: score descending -> Premium users first -> firstName ascending
+  
   processedCandidates.sort((a, b) => {
     if (b.score !== a.score) {
       return b.score - a.score;

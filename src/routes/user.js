@@ -1,4 +1,5 @@
-// routes/user.js
+// now i have to combine atuhentication. mongodb queries , relationshps
+// pagination , search filtering , rec logic and aicoach
 
 const express = require("express");
 const userRouter = express.Router();
@@ -14,11 +15,8 @@ const USER_SAFE_DATA = "firstName lastName username photoUrl about developerTitl
 // Escapes regex special characters in user-supplied search input to prevent ReDoS / regex injection
 const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/*
-==========================================
-GET /user/profile/:userId
-==========================================
-*/
+
+// GET /user/profile/:userId
 userRouter.get("/user/profile/:userId", userAuth, async (req, res) => {
   try {
     const { userId } = req.params;
@@ -44,11 +42,9 @@ userRouter.get("/user/profile/:userId", userAuth, async (req, res) => {
   }
 });
 
-/*
-==========================================
-GET /user/requests
-==========================================
-*/
+
+
+// GET /user/requests
 userRouter.get("/user/requests", userAuth, async (req, res) => {
   try {
     const loggedInUser = req.user;
@@ -69,11 +65,9 @@ userRouter.get("/user/requests", userAuth, async (req, res) => {
   }
 });  
 
-/*
-==========================================   
-GET /user/connections   
-==========================================
-*/
+  
+
+// GET /user/connections  
 userRouter.get("/user/connections", userAuth, async (req, res) => {
   try {
     const loggedInUser = req.user;  
@@ -103,11 +97,10 @@ userRouter.get("/user/connections", userAuth, async (req, res) => {
   }
 });
 
-/*
-==========================================
-GET /feed
-==========================================
-*/
+
+
+
+// GET /feed
 userRouter.get("/feed", userAuth, async (req, res) => {
   try {
     const loggedInUser = req.user;
@@ -162,11 +155,9 @@ userRouter.get("/feed", userAuth, async (req, res) => {
   }
 });
 
-/*
-==========================================
-GET /user/search
-==========================================
-*/
+
+
+// GET /user/search
 userRouter.get("/user/search", userAuth, async (req, res) => {
   try {
     const queryParam = req.query.q;
@@ -209,11 +200,11 @@ userRouter.get("/user/search", userAuth, async (req, res) => {
   }
 });
 
-/*
-==========================================
-GET /user/recommendations
-==========================================
-*/
+
+
+
+
+// GET /user/recommendations
 userRouter.get("/user/recommendations", userAuth, async (req, res) => {
   try {
     const loggedInUser = req.user;
@@ -221,6 +212,7 @@ userRouter.get("/user/recommendations", userAuth, async (req, res) => {
     if (!loggedInUser) {
       return res.status(401).json({ message: "Unauthorized access." });
     }
+
 
     // Fetch all connection requests related to the current user to build the exclusion list
     const connectionRequests = await ConnectionRequest.find({

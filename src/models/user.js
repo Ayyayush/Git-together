@@ -5,11 +5,8 @@ const validator = require("validator");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 
-/*
- * ============================
- * Project Sub-schema
- * ============================
- */
+
+ // * Project Sub-schema
 const projectSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -61,11 +58,8 @@ const projectSchema = new mongoose.Schema({
   },
 });
 
-/*
- * ============================
- * User Schema
- * ============================
- */
+
+
 const userSchema = new mongoose.Schema(
   {
     firstName: {
@@ -98,13 +92,7 @@ const userSchema = new mongoose.Schema(
       },
     },
 
-    /*
-     * ============================
-     * Email
-     * ============================
-     * Uses the same email rule as the signup API.
-     * Characters such as # are intentionally rejected.
-     */
+
     emailId: {
       type: String,
       required: true,
@@ -121,25 +109,14 @@ const userSchema = new mongoose.Schema(
       },
     },
 
-    /*
-     * ============================
-     * Hashed Password
-     * ============================
-     * This validates the bcrypt HASH stored in MongoDB.
-     * Raw password >= 8 validation is handled before hashing
-     * inside the signup/reset-password routes.
-     */
+  
     password: {
       type: String,
       required: true,
       minlength: 60,
     },
 
-    /*
-     * ============================
-     * Password Reset
-     * ============================
-     */
+
     resetPasswordToken: {
       type: String,
       default: null,
@@ -229,11 +206,6 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
-    /*
-     * ============================
-     * Extended Developer Fields
-     * ============================
-     */
     developerTitle: {
       type: String,
       trim: true,
@@ -410,20 +382,12 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-/*
- * ============================
- * Instance Method: Validate Password
- * ============================
- */
+
 userSchema.methods.validatePassword = async function (passwordInputByUser) {
   return bcrypt.compare(passwordInputByUser, this.password);
 };
 
-/*
- * ============================
- * Instance Method: Generate JWT
- * ============================
- */
+
 userSchema.methods.getJWT = async function () {
   return jwt.sign(
     { _id: this._id },
@@ -432,13 +396,7 @@ userSchema.methods.getJWT = async function () {
   );
 };
 
-/*
- * ============================
- * Search Indexes
- * ============================
- * username and emailId already receive unique indexes
- * through unique: true in their schema definitions.
- */
+
 userSchema.index({ firstName: 1 });
 userSchema.index({ lastName: 1 });
 userSchema.index({ skills: 1 });

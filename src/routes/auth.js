@@ -1,15 +1,8 @@
-// src/routes/auth.js
-
 const express = require("express");
 const authRouter = express.Router();
 const User = require("../models/user");
 const bcrypt = require("bcrypt");
 
-/*
- * ============================
- * SIGNUP
- * ============================
- */
 authRouter.post("/signup", async (req, res) => {
   try {
     const {
@@ -22,7 +15,7 @@ authRouter.post("/signup", async (req, res) => {
       gender,
     } = req.body;
 
-    /* ================= BASIC VALIDATION ================= */
+    // BASIC VALIDATION 
 
     if (!firstName || !firstName.trim()) {
       return res.status(400).json({
@@ -59,13 +52,11 @@ authRouter.post("/signup", async (req, res) => {
       });
     }
 
-    /* ================= SANITIZE ================= */
-
+  
     const sanitizedUsername = username.trim().toLowerCase();
     const sanitizedEmail = emailId.trim().toLowerCase();
 
-    /* ================= USERNAME VALIDATION ================= */
-
+    
     const usernameRegex = /^[a-z0-9_]+$/;
 
     if (
@@ -80,11 +71,10 @@ authRouter.post("/signup", async (req, res) => {
       });
     }
 
-    /* ================= EMAIL VALIDATION ================= */
+   
 
     // Intentionally restricted to common signup email characters.
-    // Rejects values such as:
-    // himanshuvarshney600#@gmail.com
+    // Rejects values such as...himanshuvarshney600#@gmail.com
     const emailRegex =
       /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
@@ -95,9 +85,9 @@ authRouter.post("/signup", async (req, res) => {
       });
     }
 
-    /* ================= PASSWORD VALIDATION ================= */
+   
 
-    // Validate the RAW password here, before bcrypt hashing.
+    // Validating the RAW password here... before bcrypt hashing.
     if (password.length < 8) {
       return res.status(400).json({
         error: "Bad Request",
@@ -105,7 +95,6 @@ authRouter.post("/signup", async (req, res) => {
       });
     }
 
-    /* ================= DUPLICATE USERNAME ================= */
 
     const existingUsername = await User.findOne({
       username: sanitizedUsername,
@@ -118,7 +107,6 @@ authRouter.post("/signup", async (req, res) => {
       });
     }
 
-    /* ================= DUPLICATE EMAIL ================= */
 
     const existingEmail = await User.findOne({
       emailId: sanitizedEmail,
@@ -132,12 +120,11 @@ authRouter.post("/signup", async (req, res) => {
       });
     }
 
-    /* ================= PASSWORD HASH ================= */
+
 
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    /* ================= CREATE USER ================= */
 
     const user = new User({
       firstName: firstName.trim(),
@@ -151,8 +138,7 @@ authRouter.post("/signup", async (req, res) => {
 
     await user.save();
 
-    /* ================= RESPONSE ================= */
-
+    
     return res.status(201).json({
       success: true,
       message: "User registered successfully",
@@ -162,7 +148,7 @@ authRouter.post("/signup", async (req, res) => {
     /*
      * MongoDB duplicate-key safety net.
      * Handles race conditions where two signup requests
-     * reach MongoDB at nearly the same time.
+     * reach MongoDB at nearly the same time
      */
     if (err.code === 11000) {
       if (err.keyPattern?.emailId || err.keyValue?.emailId) {
@@ -193,11 +179,11 @@ authRouter.post("/signup", async (req, res) => {
   }
 });
 
-/*
- * ============================
- * LOGIN
- * ============================
- */
+
+
+
+
+// login
 authRouter.post("/login", async (req, res) => {
   try {
     const { emailId, password } = req.body;
@@ -253,11 +239,7 @@ authRouter.post("/login", async (req, res) => {
   }
 });
 
-/*
- * ============================
- * LOGOUT
- * ============================
- */
+
 authRouter.post("/logout", (req, res) => {
   res.clearCookie("token", {
     httpOnly: true,
@@ -271,11 +253,7 @@ authRouter.post("/logout", (req, res) => {
   });
 });
 
-/*
- * ============================
- * CHECK USERNAME
- * ============================
- */
+
 authRouter.get("/auth/check-username", async (req, res) => {
   try {
     const { username } = req.query;

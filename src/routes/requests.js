@@ -7,7 +7,7 @@ const Notification = require("../models/Notification");
 
 // Emit structural utility to forward realtime events cleanly if user sockets match
 const emitToUser = (userId, event, data) => {
-  const globalIo = global.ioInstance;
+  const globalIo = global.ioInstance; // accessing socket.io server
   const globalUserSockets = global.userSocketsMap;
   if (
     globalIo &&
@@ -16,14 +16,14 @@ const emitToUser = (userId, event, data) => {
   ) {
     const targetSockets = globalUserSockets.get(userId.toString());
     targetSockets.forEach((sId) => {
-      globalIo.to(sId).emit(event, data);
+      globalIo.to(sId).emit(event, data); // sending event to specific socket
     });
   }
 };
 
 requestRouter.post(
   "/request/send/interested/:userId",
-  userAuth,
+  userAuth,   // first getting the sender
   async (req, res) => {
     try {
       const fromUserId = req.user._id;

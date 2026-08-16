@@ -1,10 +1,6 @@
 const validator = require("validator");
 
-/*
- * ============================
- * Validate Signup Data
- * ============================
- */
+
 const validateSignupData = (req) => {
   const { firstName, lastName, emailId, password, username } = req.body;
 
@@ -34,11 +30,7 @@ const validateSignupData = (req) => {
   }
 };
 
-/*
- * ============================
- * Validate Edit Profile Data
- * ============================
- */
+
 const validateEditProfileData = (req) => {
   const allowedEditFields = [
     "firstName",

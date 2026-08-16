@@ -3,8 +3,8 @@ const Chat = require("../models/chat");
 const User = require("../models/user");
 const Notification = require("../models/Notification");
 
-const initializeSocket = (server) => {
-  const io = new Server(server, {
+const initializeSocket = (server) => { // http server ka access
+  const io = new Server(server, {     // new socket server
     cors: {
       origin: [
         "http://localhost:5173",

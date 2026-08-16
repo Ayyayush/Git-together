@@ -3,7 +3,7 @@ const notificationRouter = express.Router();
 const Notification = require("../models/Notification");
 const { userAuth } = require("../middlewares/auth");
 
-// Fetch structured notifications grouped chronologically with unread aggregate count
+// fechthing structured notifications grouped in order with unread aggregate count
 // Final Route: GET /notifications
 notificationRouter.get("/", userAuth, async (req, res) => {
   try {
@@ -34,7 +34,7 @@ notificationRouter.get("/", userAuth, async (req, res) => {
 });
 
 // Mark all global incoming unread notifications as read
-// Final Route: PATCH /notifications/read-all
+// final Route: PATCH /notifications/read-all
 notificationRouter.patch("/read-all", userAuth, async (req, res) => {
   try {
     const loggedInUserId = req.user._id;
@@ -56,8 +56,10 @@ notificationRouter.patch("/read-all", userAuth, async (req, res) => {
   }
 });
 
-// Mark single notification item record as read
-// Final Route: PATCH /notifications/:id/read
+
+
+// mark single notification item record as read
+// final Route: PATCH /notifications/:id/read
 notificationRouter.patch("/:id/read", userAuth, async (req, res) => {
   try {
     const loggedInUserId = req.user._id;

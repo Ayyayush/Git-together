@@ -5,7 +5,7 @@ const ConnectionRequest = require("../models/ConnectionRequest");
 const User = require("../models/user");
 const { userAuth } = require("../middlewares/auth");
 
-// Fetch single direct conversation context profile metadata and records
+// Fetching single direct conversation .....context profile metadata and records
 chatRouter.get("/chat/:targetUserId", userAuth, async (req, res) => {
   try {
     const loggedInUserId = req.user._id;
@@ -83,6 +83,8 @@ chatRouter.get("/chats/conversations", userAuth, async (req, res) => {
       .populate("messages.senderId", "firstName lastName photoUrl")
       .sort({ updatedAt: -1 });
 
+
+      // converting the chat docuemtns into frontend friendly structure
     const formattedConversations = chats
       .map((chat) => {
         const targetUser = chat.participants.find(

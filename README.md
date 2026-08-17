@@ -126,7 +126,6 @@ Search functionality includes:
 ## 📰 Developer Feed
 
 The developer feed provides profiles that are eligible for discovery.
-
 The feed filters out users such as:
 
 - The logged-in user

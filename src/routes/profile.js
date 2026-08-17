@@ -50,7 +50,7 @@ profileRouter.get("/profile/view", userAuth, (req, res) => {
 
 profileRouter.patch("/profile/edit", userAuth, async (req, res) => {
   try {
-    // Step 1: Validate no protected fields are being edited
+    // Step 1: Validate no protected fields are being edited...
     const protectedFields = [
       "password",
       "emailId",

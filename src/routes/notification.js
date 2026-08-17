@@ -4,7 +4,7 @@ const Notification = require("../models/Notification");
 const { userAuth } = require("../middlewares/auth");
 
 // fechthing structured notifications grouped in order with unread aggregate count
-// Final Route: GET /notifications
+// final Route: GET /notifications
 notificationRouter.get("/", userAuth, async (req, res) => {
   try {
     const loggedInUserId = req.user._id;

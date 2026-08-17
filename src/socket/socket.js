@@ -120,7 +120,7 @@ const initializeSocket = (server) => { // http server ka access
           });
         }
 
-        // Structural modification: Fire message notifications if and only if target user is absent from chat room
+        // structural modification: Fire message notifications if and only if target user is absent from chat room
         if (!isTargetInRoom) {
           const senderUserRecord = await User.findById(userId).select("firstName lastName photoUrl");
           const senderFullName = `${senderUserRecord?.firstName || "Someone"} ${senderUserRecord?.lastName || ""}`.trim();

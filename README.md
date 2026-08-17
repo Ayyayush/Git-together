@@ -1,73 +1,70 @@
-# 🚀 GitTogether – Backend
+# GitTogether – Backend
 
-GitTogether Backend is a **production-ready backend** powering an AI-enabled Developer Networking Platform. Built using **Node.js, Express.js, MongoDB, Socket.io, JWT, LangChain, and Groq**, it delivers secure authentication, intelligent developer discovery, real-time messaging, AI-powered recommendations, and scalable REST APIs.
+GitTogether is the backend for a developer networking and collaboration platform where developers can discover other developers, build professional connections, and communicate in real time.
 
-The project follows **modular architecture**, **clean engineering practices**, and a **backend-first design philosophy**, making it suitable for real-world deployment and large-scale applications.
-
----
-
-# 🌐 Live API
-
-🔗 Backend: https://git-together-xhn9.onrender.com
+The backend is built using Node.js, Express.js, MongoDB, Mongoose, Socket.io, JWT, bcrypt, and Groq/LangChain for optional AI-generated recommendation explanations.
 
 ---
 
-# 🧠 What is GitTogether?
+## 🌐 Live API
 
-GitTogether is a professional networking platform built exclusively for developers.
+Backend: https://git-together-xhn9.onrender.com
+
+---
+
+## 🧠 What is GitTogether?
+
+GitTogether is a networking platform designed specifically for developers.
 
 Users can:
 
-- 👨‍💻 Create professional developer profiles
-- 🔍 Discover developers intelligently
-- 🤝 Build professional connections
-- 💬 Chat in real-time
-- 🤖 Receive AI-powered developer recommendations
-- 🧠 Optimize profiles using AI Profile Coach
-- ⭐ Upgrade to premium memberships
+- Create and manage developer profiles
+- Discover other developers
+- Search developers by skills and professional information
+- Receive developer recommendations
+- Send and manage connection requests
+- Build professional connections
+- Chat in real time
+- Receive notifications
 
-The backend combines concepts from **LinkedIn**, **GitHub**, and **modern AI-powered networking platforms**.
+The goal is to make it easier for developers to find relevant people for projects, hackathons, open-source work, and technical collaboration.
 
 ---
 
 # ✨ Major Features
 
----
-
 ## 🔐 Authentication & Authorization
 
-- Secure Signup
-- Secure Login
+- User signup
+- User login
 - Logout
-- JWT Authentication
-- HTTP-only Cookie Authentication
-- Protected Routes
-- Public Routes
-- Authentication Middleware
-- Password Hashing using bcrypt
-- Username Validation
-- Username Availability Checking
-- Username Completion Flow for Legacy Users
-- Secure Session Management
+- JWT authentication
+- HTTP-only cookie authentication
+- Protected routes
+- Authentication middleware
+- Password hashing using bcrypt
+- Username validation
+- Username availability checking
+- Secure session handling
+
+The backend is treated as the source of truth for authentication and authorization.
 
 ---
 
-## 👤 Professional Developer Profiles
+## 👤 Developer Profiles
 
-Developers maintain rich public profiles.
-
-Supported fields include:
+Users can maintain professional developer profiles containing information such as:
 
 - Username
-- Profile Photo
+- Profile photo
 - About
 - Skills
-- Developer Title
+- Developer title
 - College
 - Degree
-- Graduation Year
+- Graduation year
 - Company
-- Experience Level
+- Experience level
 - Location
 - Portfolio
 - Resume
@@ -78,480 +75,184 @@ Supported fields include:
 - CodeChef
 - HackerRank
 - Twitter
-- Personal Website
+- Personal website
 - Availability
 - Projects
 
 ---
 
-## 📊 Automatic Profile Strength
+## 📊 Profile Strength
 
-The backend calculates profile completeness automatically.
+The backend calculates profile completeness based on information provided by the developer.
 
 Factors include:
 
-- Bio
+- About/Bio
 - Skills
 - Projects
 - Resume
 - Portfolio
 - Education
 - Experience
-- Social Links
+- Social links
 - Availability
 
-This encourages users to build stronger professional profiles.
+This helps users identify incomplete areas of their profiles.
 
 ---
 
-## 🔍 Smart Developer Search
+## 🔍 Developer Search
 
-Production-ready developer search.
-
-Search supports:
+Developers can search for other users using:
 
 - Username
-- First Name
-- Last Name
+- First name
+- Last name
 - Skills
-- Developer Title
+- Developer title
 - Company
 - College
 
-Features:
+Search functionality includes:
 
-- Case-insensitive search
-- Regex search
-- Protected endpoint
-- Maximum 10 results
-- Premium users ranked first
-- Logged-in user excluded
+- Case-insensitive matching
+- Regex-based search
+- Authentication protection
+- Logged-in user exclusion
+- Limited search results
+
+---
+
+## 📰 Developer Feed
+
+The developer feed provides profiles that are eligible for discovery.
+
+The feed filters out users such as:
+
+- The logged-in user
+- Existing connections
+- Pending connection requests
+- Ignored users
+- Previously reviewed users
+
+The feed also supports:
+
+- Pagination
+- MongoDB filtering
+- Optimized queries
+- Profile-based sorting
 
 ---
 
 ## 🤝 Connection System
 
-Professional networking workflow.
-
 Users can:
 
-- Send Connection Requests
-- Accept Requests
-- Reject Requests
-- Ignore Requests
-- View Pending Requests
-- View Accepted Connections
+- Send connection requests
+- Accept requests
+- Reject requests
+- Ignore requests
+- View pending requests
+- View accepted connections
 
-Business rules prevent:
+The backend validates connection requests to prevent:
 
-- Duplicate requests
 - Self requests
+- Duplicate requests
 - Invalid request reviews
+
+Connection relationships are stored separately from user profile data using the `ConnectionRequest` model.
 
 ---
 
-## 📰 Smart Feed
+## 🤝 Developer Recommendations
 
-The feed intelligently excludes:
+GitTogether includes a rule-based developer recommendation system.
 
-- Logged-in user
-- Existing connections
-- Ignored developers
-- Pending requests
-- Already reviewed users
+Developers are ranked using profile information such as:
 
-Supports:
+- Common skills
+- Developer title
+- Company
+- College
+- Experience level
+- Availability
+- Location
 
-- Pagination
-- Optimized MongoDB queries
-- Smart filtering
-- Premium-first sorting
+Each matching factor contributes to a recommendation score.
+
+The candidates are then ranked based on their score and the highest-ranked developers are returned as recommendations.
+
+For the highest-ranked recommendations, Groq/LangChain can be used to generate an explanation of why the developers are a potential match.
+
+The AI is used for the explanation only.
+
+**The recommendation ranking itself is rule-based.**
 
 ---
 
 ## 💬 Real-Time Chat
 
-Built using Socket.io.
+Real-time communication is implemented using Socket.io.
 
-Features:
+Features include:
 
 - Real-time messaging
 - Conversation management
 - Chat history
+- Persistent message storage
 - Seen status
 - Typing indicator
-- Online / Offline status
-- Last Seen
-- Conversation search
-- Persistent MongoDB storage
+- Online/offline status
+- Last seen
+- Conversation retrieval
+
+Messages are persisted in MongoDB so that chat history remains available after the real-time connection ends.
 
 ---
 
-## 🤖 AI Recommendation Engine
+## 🔔 Notifications
 
-GitTogether includes an AI-powered recommendation engine.
+The backend supports notifications for important activities such as:
 
-Recommendations are generated based on:
+- Connection requests
+- Messages
 
-- Shared Skills
-- Developer Title
-- Company
-- College
-- Experience
-- Availability
-- Matching Score
-
-Top recommendations are enriched using AI-generated explanations.
-
----
-
-## 🧠 LangChain Integration
-
-The AI layer is built using:
-
-- LangChain
-- ChatGroq
-- PromptTemplate
-- Structured Output Parsing
-
-LangChain is used to generate structured recommendation explanations while preserving deterministic recommendation ranking.
-
----
-
-## 🤖 AI Profile Coach
-
-Users can optimize their profiles using AI.
-
-The coach analyzes:
-
-- Skills
-- Projects
-- Resume
-- Portfolio
-- Social Links
-- About Section
-- Profile Strength
-
-Returns:
-
-- Overall Score
-- Missing Fields
-- Suggested Improvements
-- Better Bio Suggestions
-- Recommended Skills
-
----
-
-## 🔔 Notification System
-
-Supports:
-
-- Connection Request Notifications
-- Message Notifications
-
-Notification APIs are designed for scalable real-time updates.
-
----
-
-## 👑 Premium Membership
-
-Premium infrastructure includes:
-
-- Premium Status
-- Premium Type
-- Premium Expiry
-- Razorpay Order ID
-- Razorpay Payment ID
-
-Provides the foundation for premium networking features.
-
----
-
-## 📂 Project Showcase
-
-Developers can maintain multiple projects.
-
-Each project supports:
-
-- Title
-- Description
-- GitHub Repository
-- Live Demo
-- Tech Stack
-- Project Image
+Notifications are stored in MongoDB and can be retrieved through REST APIs.
 
 ---
 
 # 🗄️ Database Design
 
-Production-oriented MongoDB modeling.
+GitTogether uses MongoDB with Mongoose.
 
-Schemas include:
+Main models include:
 
 - User
 - ConnectionRequest
 - Chat
 - Notification
-- Embedded Project
-- Embedded Messages
 
-Relationships use:
+The application uses:
 
-- ObjectId References
-- Populate
-- Indexes
-- Embedded Documents
+- ObjectId references
+- Embedded documents
+- `populate()`
+- MongoDB indexes
 
----
+### User
 
-# 🔒 Security
+Stores developer profile information.
 
-Backend follows:
+### ConnectionRequest
 
-> Never trust client input.
+Stores the relationship between two developers and the request status.
 
-Security features include:
+Example:
 
-- JWT Authentication
-- HTTP-only Cookies
-- bcrypt Password Hashing
-- Authentication Middleware
-- Mongoose Validation
-- Email Validation
-- URL Validation
-- Enum Validation
-- Username Validation
-- Protected APIs
-
----
-
-# ⚡ Performance Optimizations
-
-Implemented optimizations:
-
-- MongoDB Indexes
-- Pagination
-- Lean Queries
-- Optimized Populate
-- Modular Routing
-- RESTful Architecture
-- Efficient Recommendation Pipeline
-- AI calls limited to top recommendations
-
----
-
-# 📡 REST API Modules
-
-## Authentication
-
-- POST /signup
-- POST /login
-- POST /logout
-- GET /user/check-username
-
----
-
-## Profile
-
-- GET /profile/view
-- PATCH /profile/edit
-- GET /user/profile/:userId
-
----
-
-## Feed
-
-- GET /feed
-
----
-
-## Search
-
-- GET /user/search
-
----
-
-## Connections
-
-- GET /user/connections
-- GET /user/requests
-- POST /request/send/:status/:toUserId
-- POST /request/review/:status/:requestId
-
----
-
-## AI
-
-- GET /user/recommendations
-- POST /profile/coach
-
----
-
-## Notifications
-
-- GET /notifications
-
----
-
-## Chat
-
-Socket.io Events
-
-- joinChat
-- sendMessage
-- messageReceived
-- typing
-- messagesSeen
-- userStatusChanged
-
-REST APIs
-
-- GET /chat/:targetUserId
-- GET /chats/conversations
-
----
-
-# 🛠️ Tech Stack
-
-## Backend
-
-- Node.js
-- Express.js
-
-## Database
-
-- MongoDB
-- Mongoose
-
-## Authentication
-
-- JWT
-- bcrypt
-- cookie-parser
-
-## AI
-
-- LangChain
-- ChatGroq
-- Groq API
-
-## Real-Time
-
-- Socket.io
-
-## Payments
-
-- Razorpay
-
-## Validation
-
-- validator
-
----
-
-# 📁 Project Structure
-
-```
-src/
-│
-├── config/
-├── middlewares/
-├── models/
-├── routes/
-├── services/
-├── socket/
-├── utils/
-├── app.js
-```
-
----
-
-# 🏗️ Backend Architecture
-
-```
-Client
-   │
-   ▼
-Express Routes
-   │
-Authentication Middleware
-   │
-Business Logic
-   │
-MongoDB
-   │
-LangChain AI Layer
-   │
-Socket.io
-```
-
----
-
-# 🎯 Engineering Concepts Demonstrated
-
-- JWT Authentication
-- Cookie Authentication
-- REST API Design
-- MongoDB Modeling
-- Socket.io
-- Real-Time Communication
-- LangChain Integration
-- LLM Integration
-- AI Recommendation Systems
-- AI Profile Analysis
-- Middleware Design
-- Modular Architecture
-- Pagination
-- Production Security
-- Clean Backend Architecture
-
----
-
-# 🚀 Future Improvements
-
-- Docker
-- Docker Compose
-- CI/CD (GitHub Actions)
-- AWS EC2 Deployment
-- Nginx Reverse Proxy
-- Email Verification
-- Forgot Password Flow
-- OAuth Login
-- Cloudinary File Uploads
-- Push Notifications
-- Group Chat
-- Video Calling
-
----
-
-# 📚 Learning
-
-This project was initially inspired by **Namaste Node.js by Akshay Saini** and was later extended into a production-style backend featuring AI integration, intelligent recommendation systems, professional networking workflows, and scalable architecture.
-
----
-
-# ⭐ One-Line Summary
-
-**GitTogether Backend is a production-ready AI-powered backend for a developer networking platform featuring secure authentication, intelligent developer discovery, LangChain-powered recommendations, AI profile coaching, real-time messaging, professional networking, and scalable REST APIs.**
-
----
-
-# 🙌 Credits
-
-Inspired by **Namaste Node.js – Akshay Saini**
-
-Extended with:
-
-- AI Recommendation Engine
-- LangChain Integration
-- AI Profile Coach
-- Smart Developer Search
-- Public Developer Profiles
-- Real-Time Chat
-- Premium Membership Infrastructure
-- Notification System
-- Production-Oriented Backend Architecture
-
----
-
-⭐ **If you found this project useful, consider giving it a Star!**
+```js
+{
+  fromUserId,
+  toUserId,
+  status
+}

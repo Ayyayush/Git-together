@@ -1,11 +1,9 @@
-// ==========================
-// Environment Variables
-// ==========================
+
 require("dotenv").config();
 
-// ==========================
-// Imports
-// ==========================
+ 
+
+ 
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
@@ -15,9 +13,8 @@ const connectDB = require("./config/database");
 const initializeSocket = require("./socket/socket");
 const { apiLimiter } = require("./middlewares/rateLimiter");
 
-// ==========================
-// Routes
-// ==========================
+ 
+
 const authRouter = require("./routes/auth");
 const profileRouter = require("./routes/profile");
 const requestRouter = require("./routes/requests");
@@ -26,20 +23,19 @@ const chatRouter = require("./routes/chat");
 const paymentRouter = require("./routes/payment");
 const notificationRouter = require("./routes/notification");
 
-// ==========================
+ 
 // App Initialization
-// ==========================
+ 
 const app = express();
 const server = http.createServer(app);
 
-// ==========================
+ 
 // Socket.io
-// ==========================
+ 
 initializeSocket(server);
 
-// ==========================
-// CORS Configuration
-// ==========================
+
+ 
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5175", // Docker frontend
@@ -58,7 +54,7 @@ if (process.env.CLIENT_URL) {
 app.use(
   cors({
     origin(origin, callback) {
-      // Allow Postman, curl and server-to-server requests
+     
       if (!origin) {
         return callback(null, true);
       }
@@ -74,22 +70,19 @@ app.use(
   })
 );
 
-// ==========================
-// Rate Limiting
-// ==========================
-// General API protection:
-// 100 requests per IP every 15 minutes
+ 
+
 app.use(apiLimiter);
 
-// ==========================
-// Middlewares
-// ==========================
+ 
+
+ 
 app.use(express.json());
 app.use(cookieParser());
 
-// ==========================
-// Health Check
-// ==========================
+ 
+
+ 
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
@@ -97,9 +90,9 @@ app.get("/", (req, res) => {
   });
 });
 
-// ==========================
-// Routes
-// ==========================
+ 
+
+ 
 app.use("/", authRouter);
 app.use("/", profileRouter);
 app.use("/", requestRouter);
@@ -108,9 +101,8 @@ app.use("/", chatRouter);
 app.use("/", paymentRouter);
 app.use("/notifications", notificationRouter);
 
-// ==========================
-// 404 Handler
-// ==========================
+
+ 
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -118,9 +110,7 @@ app.use((req, res) => {
   });
 });
 
-// ==========================
-// Start Server
-// ==========================
+ 
 const PORT = process.env.PORT || 7777;
 
 connectDB()

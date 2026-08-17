@@ -1,13 +1,5 @@
 const rateLimit = require("express-rate-limit");
 
-/*
- * ============================
- * General API Rate Limiter
- * ============================
- * Limits repeated requests from the same IP.
- * Helps protect APIs from abuse and accidental
- * excessive requests.
- */
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   limit: 100,
@@ -20,13 +12,7 @@ const apiLimiter = rateLimit({
   },
 });
 
-/*
- * ============================
- * AI API Rate Limiter
- * ============================
- * Stricter limit because AI requests can
- * consume external API resources.
- */
+
 const aiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   limit: 10,

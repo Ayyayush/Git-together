@@ -1,10 +1,3 @@
-// services/recommendationAI.js
-
-// All LangChain / Groq / zod packages are required lazily and defensively:
-// if any of them are not installed or fail to load, this file must NOT
-// throw at require-time, because that would prevent routes/user.js (which
-// requires this module) from loading at all — taking down every route in
-// userRouter, including GET /user/recommendations, with it.
 let ChatGroq = null;
 let ChatPromptTemplate = null;
 let RunnableSequence = null;
@@ -24,10 +17,6 @@ try {
   );
 }
 
-// ======================================================
-// Groq Model Configuration
-// ======================================================
-
 const modelName =
   process.env.MODEL_NAME || "llama-3.3-70b-versatile";
 
@@ -39,10 +28,6 @@ if (apiKey && ChatGroq) {
   try {
     model = new ChatGroq({
       apiKey,
-      // IMPORTANT:
-// Current @langchain/groq expects the model through `model`.
-// Using only `modelName` can result in Groq receiving a request
-// without the required `model` property.
       model: modelName,
       temperature: 0.3,
       maxTokens: 300,
@@ -73,10 +58,6 @@ if (apiKey && ChatGroq) {
   }
 }
 
-// ======================================================
-// Structured Output Schema
-// ======================================================
-
 let outputParser = null;
 
 if (StructuredOutputParser && z) {
@@ -85,9 +66,7 @@ if (StructuredOutputParser && z) {
       z.object({
         title: z
           .string()
-          .describe(
-            "A short, punchy title for the match, e.g. 'Excellent Full Stack Match'"
-          ),
+          .describe("A short, punchy title for the match, e.g. 'Excellent Full Stack Match'"),
 
         summary: z
           .string()
@@ -118,10 +97,6 @@ if (StructuredOutputParser && z) {
   }
 }
 
-// ======================================================
-// Prompt Template
-// ======================================================
-
 let promptTemplate = null;
 
 if (ChatPromptTemplate && outputParser) {
@@ -136,7 +111,6 @@ if (ChatPromptTemplate && outputParser) {
           "Do not include any intros, outros, markdown formatting (no ```), or any text outside the JSON object.\n\n" +
           "{format_instructions}",
       ],
-
       [
         "human",
         "Generate a match explanation based on this data:\n\n" +
@@ -174,11 +148,6 @@ if (ChatPromptTemplate && outputParser) {
   }
 }
 
-// ======================================================
-// LangChain Pipeline
-// Prompt -> Groq -> Structured Output Parser
-// ======================================================
-
 let chain = null;
 
 if (
@@ -203,12 +172,6 @@ if (
   }
 }
 
-/**
- * Builds a safe default structured response.
- *
- * Used when an AI response cannot be represented using the
- * expected structured format.
- */
 function buildDefaultStructuredResponse(analysis) {
   const reasons =
     Array.isArray(analysis?.reasons) &&
@@ -218,42 +181,23 @@ function buildDefaultStructuredResponse(analysis) {
 
   return {
     title: "Good Networking Match",
-
     summary: reasons.join(", ") + ".",
-
     strengths: reasons,
-
     collaborationIdeas: [
       "Reach out to discuss shared interests and potential collaboration.",
     ],
   };
 }
-/**
- * Generates an AI-driven professional networking match explanation using
- * LangChain's PromptTemplate, ChatGroq, and StructuredOutputParser.
- *
- * Error handling:
- * - If the AI layer is unavailable, returns null.
- * - If Groq/API invocation fails, returns null.
- * - If the parsed response has an unexpected structure, returns a safe
- *   fallback response.
- *
- * @param {Object} currentUser - Logged-in developer.
- * @param {Object} candidate - Recommended developer.
- * @param {Object} analysis - Calculated recommendation details.
- * @returns {Promise<Object|null>}
- */
+
 async function generateAIExplanation(
   currentUser,
   candidate,
   analysis
 ) {
-  // AI layer unavailable/configuration failed
   if (!chain) {
     return null;
   }
 
-  // Defensive defaults
   currentUser = currentUser || {};
   candidate = candidate || {};
   analysis = analysis || {};
@@ -265,15 +209,10 @@ async function generateAIExplanation(
     candidate.username ||
     "This developer";
 
-  // ======================================================
-  // Prepare Prompt Variables
-  // ======================================================
-
   const invokeArgs = {
     format_instructions:
       outputParser.getFormatInstructions(),
 
-    // Logged-in developer
     userSkills:
       Array.isArray(currentUser.skills) &&
       currentUser.skills.length > 0
@@ -295,7 +234,6 @@ async function generateAIExplanation(
     userAvailability:
       currentUser.availability || "Not specified",
 
-    // Candidate developer
     candidateName,
 
     candidateSkills:
@@ -319,7 +257,6 @@ async function generateAIExplanation(
     candidateAvailability:
       candidate.availability || "Not specified",
 
-    // Recommendation analysis
     score:
       analysis.score ?? 0,
 
@@ -333,11 +270,6 @@ async function generateAIExplanation(
         : "General professional compatibility",
   };
 
-  // ======================================================
-  // Execute LangChain Pipeline
-  // Prompt -> ChatGroq -> StructuredOutputParser
-  // ======================================================
-
   let rawResult;
 
   try {
@@ -348,14 +280,8 @@ async function generateAIExplanation(
       groqOrChainError?.message || groqOrChainError
     );
 
-    // Recommendation endpoint should continue working even
-    // if Groq is temporarily unavailable.
     return null;
   }
-
-  // ======================================================
-  // Validate Structured Response
-  // ======================================================
 
   if (
     !rawResult ||
@@ -372,10 +298,6 @@ async function generateAIExplanation(
     return buildDefaultStructuredResponse(analysis);
   }
 
-  // ======================================================
-  // Return Clean Structured Result
-  // ======================================================
-
   return {
     title: rawResult.title,
     summary: rawResult.summary,
@@ -383,10 +305,6 @@ async function generateAIExplanation(
     collaborationIdeas: rawResult.collaborationIdeas,
   };
 }
-
-// ======================================================
-// Exports
-// ======================================================
 
 module.exports = {
   generateAIExplanation,

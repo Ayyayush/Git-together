@@ -1,20 +1,17 @@
-
-/**
- * Calculates recommendation score for a single candidate developer compared to a logged-in user.
- * @param {Object} currentUser - The logged-in user object.
- * @param {Object} candidate - The candidate user object.
- * @returns {Object} An object containing score, commonSkills count, and reasons array.
- */
 function calculateRecommendationScore(currentUser, candidate) {
   let score = 0;
   const reasons = [];
   let commonSkillsCount = 0;
 
-  // . Same Skill Scoring (+10 per skill, Max 40)
-  if (currentUser.skills && candidate.skills && Array.isArray(currentUser.skills) && Array.isArray(candidate.skills)) {
+  if (
+    currentUser.skills &&
+    candidate.skills &&
+    Array.isArray(currentUser.skills) &&
+    Array.isArray(candidate.skills)
+  ) {
     const currentSkillsLower = currentUser.skills.map(s => s.toLowerCase().trim());
     const candidateSkillsLower = candidate.skills.map(s => s.toLowerCase().trim());
-    
+
     currentSkillsLower.forEach(skill => {
       if (candidateSkillsLower.includes(skill)) {
         commonSkillsCount++;
@@ -24,45 +21,67 @@ function calculateRecommendationScore(currentUser, candidate) {
     if (commonSkillsCount > 0) {
       const skillPoints = Math.min(commonSkillsCount * 10, 40);
       score += skillPoints;
-      reasons.push(`${commonSkillsCount} common skill${commonSkillsCount > 1 ? 's' : ''}`);
+      reasons.push(
+        `${commonSkillsCount} common skill${commonSkillsCount > 1 ? "s" : ""}`
+      );
     }
   }
 
-  //  Same College Scoring (+20)
-  if (currentUser.college && candidate.college && currentUser.college.trim().toLowerCase() === candidate.college.trim().toLowerCase()) {
+  if (
+    currentUser.college &&
+    candidate.college &&
+    currentUser.college.trim().toLowerCase() ===
+      candidate.college.trim().toLowerCase()
+  ) {
     score += 20;
     reasons.push("Studied at the same college");
   }
 
-  // Same Company Scoring (+20)
-  if (currentUser.company && candidate.company && currentUser.company.trim().toLowerCase() === candidate.company.trim().toLowerCase()) {
+  if (
+    currentUser.company &&
+    candidate.company &&
+    currentUser.company.trim().toLowerCase() ===
+      candidate.company.trim().toLowerCase()
+  ) {
     score += 20;
     reasons.push("Works at the same company");
   }
 
-  //  Same Experience Level Scoring (+15)
-  if (currentUser.experienceLevel && candidate.experienceLevel && currentUser.experienceLevel === candidate.experienceLevel) {
+  if (
+    currentUser.experienceLevel &&
+    candidate.experienceLevel &&
+    currentUser.experienceLevel === candidate.experienceLevel
+  ) {
     score += 15;
     reasons.push("Same experience level");
   }
 
-  //  Same Availability Scoring (+15)
-  if (currentUser.availability && candidate.availability && currentUser.availability === candidate.availability) {
+  if (
+    currentUser.availability &&
+    candidate.availability &&
+    currentUser.availability === candidate.availability
+  ) {
     score += 15;
+
     if (currentUser.availability === "Hackathons") {
       reasons.push("Open for Hackathons");
     } else {
-      reasons.push(`Open for ${currentUser.availability.replace("Open to ", "")}`);
+      reasons.push(
+        `Open for ${currentUser.availability.replace("Open to ", "")}`
+      );
     }
   }
 
-  //  Same Location Scoring (+10)
-  if (currentUser.location && candidate.location && currentUser.location.trim().toLowerCase() === candidate.location.trim().toLowerCase()) {
+  if (
+    currentUser.location &&
+    candidate.location &&
+    currentUser.location.trim().toLowerCase() ===
+      candidate.location.trim().toLowerCase()
+  ) {
     score += 10;
     reasons.push("Located in the same city");
   }
 
-  //  Premium User Scoring (+5)
   if (candidate.isPremium) {
     score += 5;
   }
@@ -74,26 +93,25 @@ function calculateRecommendationScore(currentUser, candidate) {
   };
 }
 
-
 function getRecommendationReasons(currentUser, candidate) {
   const result = calculateRecommendationScore(currentUser, candidate);
   return result.reasons;
 }
 
-/**
- * Filters, scores, sorts, and limits the developer candidates.
- * @param {Object} currentUser - The logged-in user object.
- * @param {Array} candidates - The array of potential candidate user objects.
- * @returns {Array} List of top 10 recommended developers with scores and reasons.
- */
 function recommendDevelopers(currentUser, candidates) {
   if (!currentUser || !Array.isArray(candidates)) {
     return [];
   }
 
   const processedCandidates = candidates.map(candidate => {
-    const candidateObj = candidate.toObject ? candidate.toObject() : { ...candidate };
-    const analysis = calculateRecommendationScore(currentUser, candidateObj);
+    const candidateObj = candidate.toObject
+      ? candidate.toObject()
+      : { ...candidate };
+
+    const analysis = calculateRecommendationScore(
+      currentUser,
+      candidateObj
+    );
 
     return {
       _id: candidateObj._id,
@@ -114,14 +132,15 @@ function recommendDevelopers(currentUser, candidates) {
     };
   });
 
-  
   processedCandidates.sort((a, b) => {
     if (b.score !== a.score) {
       return b.score - a.score;
     }
+
     if (b.isPremium !== a.isPremium) {
       return b.isPremium ? 1 : -1;
     }
+
     return a.firstName.localeCompare(b.firstName);
   });
 

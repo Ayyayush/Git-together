@@ -6,7 +6,7 @@ const User = require("../models/user");
 const { userAuth } = require("../middlewares/auth");
 
 
-// WHITELIST OF EDITABLE FIELDS
+
 const EDITABLE_FIELDS = [
   "firstName",
   "lastName",

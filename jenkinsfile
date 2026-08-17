@@ -1,0 +1,58 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = "git-together-backend"
+        CONTAINER_NAME = "git-together-backend"
+    }
+
+    stages {
+
+        stage("Checkout") {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage("Install Dependencies") {
+            steps {
+                sh "npm ci"
+            }
+        }
+
+        stage("Run Tests") {
+            steps {
+                sh "npm test"
+            }
+        }
+
+        stage("Build Docker Image") {
+            steps {
+                sh "docker build -t ${IMAGE_NAME}:latest ."
+            }
+        }
+
+        stage("Deploy") {
+            steps {
+                sh """
+                    docker stop ${CONTAINER_NAME} || true
+                    docker rm ${CONTAINER_NAME} || true
+                    docker run -d \
+                        --name ${CONTAINER_NAME} \
+                        -p 7777:7777 \
+                        ${IMAGE_NAME}:latest
+                """
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "GitTogether deployment successful"
+        }
+
+        failure {
+            echo "GitTogether deployment failed"
+        }
+    }
+}

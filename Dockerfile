@@ -3,11 +3,9 @@ FROM node:20-alpine AS dependencies
 
 WORKDIR /app
 
-
 COPY package*.json ./
 
 RUN npm ci
-
 
 
 FROM node:20-alpine
